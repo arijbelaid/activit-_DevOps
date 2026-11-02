@@ -2249,7 +2249,8 @@ networks:
     driver: bridge
 \`\`\`
 
-![Fichier Docker Compose](./captures/63-docker-compose-file.png)
+
+)
 
 **Commande de lancement :**
 \`\`\`bash
@@ -2257,18 +2258,12 @@ docker compose up -d
 docker compose ps
 \`\`\`
 
-![Résultat docker compose ps](./captures/63-docker-compose-ps.png)
+![Fichier Docker Compose](./captures/63-docker-compose-ps.png)
 
 ### 42. Vérification de la communication via Docker Compose
 
 Le portfolio a été testé depuis la machine physique pour s'assurer que le Frontend (dans son conteneur) communique bien avec l'API (dans son conteneur) via le réseau Docker.
 
-**Explication :**
-Docker Compose crée un réseau interne (`devsecops-network`) qui permet aux conteneurs de se parler. L'API expose le port 5000 vers l'extérieur, et le navigateur du client fait une requête vers l'IP de la VM sur ce port. Le Frontend, compilé avec la variable `NEXT_PUBLIC_API_URL`, sait exactement où chercher les données.
-
-![Portfolio avec données de l'API via Docker](./captures/64-docker-compose-frontend.png)
-
----
 **Explication :**
 Docker Compose crée un réseau interne (`devsecops-network`) qui permet aux conteneurs de se parler. L'API expose le port 5000 vers l'extérieur, et le navigateur du client fait une requête vers l'IP de la VM sur ce port. Le Frontend, compilé avec la variable `NEXT_PUBLIC_API_URL`, sait exactement où chercher les données.
 
