@@ -1,2 +1,2 @@
 [servers]
-vm-cible ansible_host=192.168.159.15 ansible_user=arij
+vm-cible ansible_host=192.168.159.15 ansible_user=arij ansible_python_interpreter=/usr/bin/python3

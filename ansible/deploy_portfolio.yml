@@ -4,7 +4,8 @@
   become: true
   vars:
     repo_url: "https://github.com/arijbelaid/cv-onepage.git"
-    app_dir: "/home/arij/cv-onepage"
+    # IMPORTANT : Vagrant utilise l'utilisateur "vagrant" par défaut
+    app_dir: "/home/vagrant/cv-onepage"
 
   tasks:
     - name: Installer Git et Docker Compose
@@ -32,12 +33,4 @@
       community.docker.docker_compose_v2:
         project_src: "{{ app_dir }}"
         state: present
-
-    - name: Attendre que le Portfolio soit accessible
-      uri:
-        url: "http://{{ ansible_host }}:3000"
-        status_code: 200
-      register: result
-      until: result.status == 200
-      retries: 30
-      delay: 5
+        build: always
