@@ -1,0 +1,43 @@
+---
+- name: Déployer le DevSecOps Portfolio avec Docker Compose
+  hosts: all
+  become: true
+  vars:
+    repo_url: "https://github.com/arijbelaid/cv-onepage.git"
+    app_dir: "/home/arij/cv-onepage"
+
+  tasks:
+    - name: Installer Git et Docker Compose
+      apt:
+        name:
+          - git
+          - docker-compose-plugin
+        state: present
+        update_cache: yes
+
+    - name: S'assurer que le service Docker est démarré
+      systemd:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Cloner ou mettre à jour le dépôt du portfolio
+      git:
+        repo: "{{ repo_url }}"
+        dest: "{{ app_dir }}"
+        version: main
+        force: yes
+
+    - name: Lancer les conteneurs avec Docker Compose
+      community.docker.docker_compose_v2:
+        project_src: "{{ app_dir }}"
+        state: present
+
+    - name: Attendre que le Portfolio soit accessible
+      uri:
+        url: "http://{{ ansible_host }}:3000"
+        status_code: 200
+      register: result
+      until: result.status == 200
+      retries: 30
+      delay: 5

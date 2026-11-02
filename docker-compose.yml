@@ -1,5 +1,6 @@
 services:
   api:
+    build: ./api
     image: devsecops-api
     container_name: devsecops-api-container
     ports:
@@ -9,12 +10,13 @@ services:
       - devsecops-network
 
   frontend:
+    build: ./nextjs-portfolio
     image: devsecops-portfolio
     container_name: devsecops-frontend-container
     ports:
       - "3000:3000"
     environment:
-      - NEXT_PUBLIC_API_URL=http://192.168.159.129:5000
+      - NEXT_PUBLIC_API_URL=http://192.168.159.15:5000
     depends_on:
       - api
     restart: unless-stopped
