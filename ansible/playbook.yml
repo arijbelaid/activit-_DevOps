@@ -1,0 +1,5 @@
+---
+# Point d'entrée unique — appelé par Vagrant
+- import_playbook: install_packages.yml
+- import_playbook: install_docker.yml
+- import_playbook: deploy_portfolio.yml

@@ -1,0 +1,32 @@
+---
+- name: Déployer le DevSecOps Portfolio avec Docker Compose
+  hosts: all
+  become: true
+  vars:
+    repo_url: "https://github.com/arijbelaid/cv-onepage.git"
+    app_dir: "/home/vagrant/cv-onepage"
+
+  tasks:
+    - name: Cloner ou mettre à jour le dépôt du portfolio
+      git:
+        repo: "{{ repo_url }}"
+        dest: "{{ app_dir }}"
+        version: main
+        force: yes
+
+    - name: Corriger les permissions du dépôt cloné
+      file:
+        path: "{{ app_dir }}"
+        owner: vagrant
+        group: vagrant
+        recurse: yes
+
+    - name: Créer le fichier .env avec la bonne IP pour l'API
+      copy:
+        dest: "{{ app_dir }}/nextjs-portfolio/.env"
+        content: "NEXT_PUBLIC_API_URL=http://192.168.56.10:5000\n"
+    - name: Lancer les conteneurs avec Docker Compose
+      community.docker.docker_compose_v2:
+        project_src: "{{ app_dir }}"
+        state: present
+        build: always
