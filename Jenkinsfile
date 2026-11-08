@@ -76,17 +76,17 @@ pipeline {
             steps {
                 echo '🔎 Analyse des dépendances avec npm audit...'
                 dir('api') {
-                    sh 'npm audit --audit-level=high || true'
+                    sh 'npm audit --audit-level=high' // Echec si faille high/critical
                 }
                 dir('nextjs-portfolio') {
-                    sh 'npm audit --audit-level=high || true'
+                    sh 'npm audit --audit-level=high'
                 }
             }
         }
 
         stage('OWASP Dependency-Check') {
             steps {
-                echo '🛡️ Analyse SCA avec OWASP Dependency-Check (peut être long au 1er lancement)...'
+                echo '🛡️ Analyse SCA avec OWASP Dependency-Check...'
                 sh '''
                     mkdir -p reports
                     docker run --rm \
@@ -97,7 +97,7 @@ pipeline {
                     --format "HTML" --format "JSON" \
                     --project "DevSecOps Portfolio" \
                     --out /report \
-                    --failOnCVSS 8 || true
+                    --failOnCVSS 8
                 '''
             }
             post {
@@ -150,18 +150,15 @@ pipeline {
             }
         }
 
-        // ⬇️ NOUVEAU STAGE (Q68) ⬇️
         stage('Trivy Image Scan') {
             steps {
                 script {
                     def gitSha = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
                     echo "🛡️ Scan de sécurité des images Docker avec Trivy..."
                     
-                    // Scan de l'image API
-                    sh "docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image --severity HIGH,CRITICAL devsecops-api:${gitSha} || true"
-                    
-                    // Scan de l'image Frontend
-                    sh "docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image --severity HIGH,CRITICAL devsecops-portfolio:${gitSha} || true"
+                    // Echec si vulnérabilité HIGH ou CRITICAL trouvée
+                    sh "docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image --exit-code 1 --severity HIGH,CRITICAL devsecops-api:${gitSha}"
+                    sh "docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image --exit-code 1 --severity HIGH,CRITICAL devsecops-portfolio:${gitSha}"
                 }
             }
         }
@@ -172,7 +169,7 @@ pipeline {
             echo '✅ Pipeline terminé avec succès !'
         }
         failure {
-            echo '❌ Le pipeline a échoué.'
+            echo '❌ Le pipeline a échoué à cause d\'une alerte de sécurité.'
         }
     }
 }
