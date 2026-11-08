@@ -10,7 +10,8 @@ services:
       - DB_HOST=db
       - DB_USER=arij
       - DB_PASSWORD=password123
-      - DB_NAME=portfolio_db
+      - DB_NAME=portfolio_db 
+      - DATABASE_URL=postgresql://arij:password123@db:5432/portfolio_db?schema=public 
     depends_on:
       - db
     networks:

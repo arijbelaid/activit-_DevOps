@@ -10,6 +10,8 @@ Vagrant.configure("2") do |config|
   config.vm.network "private_network", ip: "192.168.56.10"
   config.vm.network "forwarded_port", guest: 3000, host: 3000
   config.vm.network "forwarded_port", guest: 5000, host: 5000
+  config.vm.network "forwarded_port", guest: 5432, host: 5432  
+
 
   # Configuration des ressources
   config.vm.provider "virtualbox" do |vb|

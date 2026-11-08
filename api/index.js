@@ -1,16 +1,23 @@
+const rateLimit = require('express-rate-limit');
 const { z } = require('zod');
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
+const { PrismaClient } = require('@prisma/client');
 require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Middlewares
+// Initialisation de Prisma
+const prisma = new PrismaClient();
+
+// Middlewares de sécurité
+app.use(helmet());
 app.use(cors());
 app.use(express.json());
 
-// Route de base pour tester
+// Route de base
 app.get('/', (req, res) => {
   res.send('API DevSecOps opérationnelle !');
 });
@@ -35,7 +42,6 @@ app.get('/api/profile', (req, res) => {
     bio: "Passionnée par l'automatisation, les systèmes Linux et les architectures cloud."
   });
 });
-
 
 // Route 3 : Liste des projets (Q32)
 app.get('/api/projects', (req, res) => {
@@ -82,42 +88,65 @@ app.get('/api/skills', (req, res) => {
 
 // Schéma de validation Zod (Q48)
 const contactSchema = z.object({
-  nom: z.string()
-    .min(2, "Le nom doit contenir au moins 2 caractères.")
-    .max(50, "Le nom est trop long."),
-  email: z.string()
-    .email("L'adresse email n'est pas valide."),
-  message: z.string()
-    .min(10, "Le message doit contenir au moins 10 caractères.")
-    .max(1000, "Le message est trop long (max 1000 caractères).")
+  nom: z.string().min(2, "Le nom doit contenir au moins 2 caractères.").max(50, "Le nom est trop long."),
+  email: z.string().email("L'adresse email n'est pas valide."),
+  message: z.string().min(10, "Le message doit contenir au moins 10 caractères.").max(1000, "Le message est trop long.")
 });
 
-// Route 5 : Formulaire de contact (Q46 + Q48)
-app.post('/api/contact', (req, res) => {
-  // Validation stricte avec Zod
+// Rate Limiting (Q51)
+const contactLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  message: { status: "error", message: "Trop de requêtes. Veuillez réessayer dans 15 minutes." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Route 5 : Formulaire de contact avec Prisma (Q46 + Q48 + Q51 + Q54 + Q55)
+app.post('/api/contact', contactLimiter, async (req, res, next) => {
   const result = contactSchema.safeParse(req.body);
 
-  // Si la validation échoue, on renvoie une erreur 400
   if (!result.success) {
     return res.status(400).json({
       status: "error",
       message: "Données invalides.",
-      errors: result.error.errors.map(err => ({
-        champ: err.path[0],
-        message: err.message
-      }))
+      errors: result.error.errors.map(err => ({ champ: err.path[0], message: err.message }))
     });
   }
 
-  // Si la validation réussit, on utilise les données validées
   const { nom, email, message } = result.data;
 
-  console.log(`📩 Nouveau message de ${nom} (${email}) : ${message}`);
-  
-  res.status(200).json({
-    status: "success",
-    message: "Votre message a bien été reçu !",
-    data: { nom, email, message }
+  try {
+    const newContact = await prisma.contact.create({
+      data: { nom, email, message },
+    });
+
+    console.log(`📩 Message Prisma enregistré de ${nom}`);
+    res.status(200).json({
+      status: "success",
+      message: "Votre message a bien été reçu et enregistré !",
+      data: newContact
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Route de test erreur (Q49)
+app.get('/api/test-error', (req, res, next) => {
+  const error = new Error("Erreur fatale simulée.");
+  error.statusCode = 500;
+  next(error);
+});
+
+// Middleware d'erreur centralisé (Q49)
+app.use((err, req, res, next) => {
+  console.error(`💥 Erreur interceptée : ${err.message}`);
+  const statusCode = err.statusCode || 500;
+  res.status(statusCode).json({
+    status: "error",
+    message: err.message || "Une erreur interne est survenue.",
+    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
   });
 });
 

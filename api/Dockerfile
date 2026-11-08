@@ -7,11 +7,15 @@ WORKDIR /app
 # Copie des fichiers de dépendances
 COPY package*.json ./
 
-# Installation des dépendances (uniquement celles de production)
+# Installation des dépendances
 RUN npm install --production
 
 # Copie du reste du code source de l'API
 COPY . .
+
+# Copie du schéma Prisma et génération du client
+COPY prisma ./prisma/
+RUN npx prisma generate
 
 # Exposition du port 5000 utilisé par l'API
 EXPOSE 5000
