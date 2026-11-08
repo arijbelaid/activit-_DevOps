@@ -114,7 +114,7 @@ app.post('/api/contact', contactLimiter, async (req, res, next) => {
     return res.status(400).json({
       status: "error",
       message: "Données invalides.",
-      errors: result.error.errors.map(err => ({ champ: err.path[0], message: err.message }))
+      errors: result.error.issues.map(err => ({ champ: err.path[0], message: err.message }))
     });
   }
 
