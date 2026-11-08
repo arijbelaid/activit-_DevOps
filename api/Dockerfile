@@ -22,3 +22,4 @@ EXPOSE 5000
 
 # Commande de démarrage de l'API
 CMD ["node", "index.js"]
+USER node

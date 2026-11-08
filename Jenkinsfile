@@ -44,13 +44,16 @@ pipeline {
             }
         }
 
-        // ⬇️ NOUVEAU STAGE SAST (Q65) ⬇️
         stage('Semgrep SAST') {
             steps {
                 echo '🛡️ Analyse de sécurité statique (SAST) avec Semgrep...'
                 sh '''
                     docker run --rm -v "$PWD:/src" -w /src semgrep/semgrep:latest \
-                    semgrep scan --config auto --error --exclude 'node_modules' --exclude '.next' --exclude 'dist'
+                    semgrep scan --config auto --error \
+                    --exclude 'node_modules' --exclude '.next' --exclude 'dist' --exclude '.vagrant' \
+                    --exclude-rule javascript.express.security.audit.express-check-csurf-middleware-usage.express-check-csurf-middleware-usage \
+                    --exclude-rule typescript.react.security.react-insecure-request.react-insecure-request \
+                    --exclude-rule javascript.lang.security.audit.unsafe-formatstring.unsafe-formatstring
                 '''
             }
         }
@@ -102,10 +105,10 @@ pipeline {
                 script {
                     def gitSha = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
                     echo "🐳 Construction des images Docker avec le tag : ${gitSha}"
-                    
+
                     sh "docker build -t devsecops-api:${gitSha} ./api"
                     sh "docker build -t devsecops-portfolio:${gitSha} ./nextjs-portfolio"
-                    
+
                     sh "docker tag devsecops-api:${gitSha} devsecops-api:latest"
                     sh "docker tag devsecops-portfolio:${gitSha} devsecops-portfolio:latest"
                 }

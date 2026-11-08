@@ -24,5 +24,7 @@ COPY nginx.conf /etc/nginx/conf.d/default.conf
 # Documentation : le conteneur écoute sur le port 80
 EXPOSE 80
 
+USER nginx
 # Commande par défaut : lancer Nginx au premier plan
 CMD ["nginx", "-g", "daemon off;"]
+
