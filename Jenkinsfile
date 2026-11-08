@@ -30,11 +30,34 @@ pipeline {
 
         stage('Install Dependencies') {
             steps {
-                echo '📦 Installation des dépendances Next.js...'
+                echo '📦 Installation des dépendances API et Next.js...'
+                dir('api') {
+                    sh 'npm install'
+                }
                 dir('nextjs-portfolio') {
                     sh 'node --version'
                     sh 'npm --version'
                     sh 'npm install'
+                }
+            }
+        }
+
+        // ⬇️ NOUVEAU : Tests de l'API (Q61) ⬇️
+        stage('API Tests') {
+            steps {
+                echo '🧪 Exécution des tests de l\'API...'
+                dir('api') {
+                    sh 'npm run test'
+                }
+            }
+        }
+
+        // ⬇️ NOUVEAU : Tests du Frontend (Q61) ⬇️
+        stage('Frontend Tests') {
+            steps {
+                echo '🧪 Exécution des tests du Frontend...'
+                dir('nextjs-portfolio') {
+                    sh 'npm run test'
                 }
             }
         }
