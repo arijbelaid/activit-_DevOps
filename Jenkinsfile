@@ -32,8 +32,8 @@ pipeline {
             steps {
                 echo '🔍 Analyse des secrets avec Gitleaks...'
                 sh '''
-                    docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:latest \
-                    detect --source /repo --report-format json \
+                    docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:latest \\
+                    detect --source /repo --report-format json \\
                     --report-path /repo/gitleaks.json --exit-code 1
                 '''
             }
@@ -48,11 +48,11 @@ pipeline {
             steps {
                 echo '🛡️ Analyse de sécurité statique (SAST) avec Semgrep...'
                 sh '''
-                    docker run --rm -v "$PWD:/src" -w /src semgrep/semgrep:latest \
-                    semgrep scan --config auto --error \
-                    --exclude 'node_modules' --exclude '.next' --exclude 'dist' --exclude '.vagrant' \
-                    --exclude-rule javascript.express.security.audit.express-check-csurf-middleware-usage.express-check-csurf-middleware-usage \
-                    --exclude-rule typescript.react.security.react-insecure-request.react-insecure-request \
+                    docker run --rm -v "$PWD:/src" -w /src semgrep/semgrep:latest \\
+                    semgrep scan --config auto --error \\
+                    --exclude 'node_modules' --exclude '.next' --exclude 'dist' --exclude '.vagrant' \\
+                    --exclude-rule javascript.express.security.audit.express-check-csurf-middleware-usage.express-check-csurf-middleware-usage \\
+                    --exclude-rule typescript.react.security.react-insecure-request.react-insecure-request \\
                     --exclude-rule javascript.lang.security.audit.unsafe-formatstring.unsafe-formatstring
                 '''
             }
@@ -72,12 +72,10 @@ pipeline {
             }
         }
 
-        // ⬇️ NOUVEAU STAGE (Q66) ⬇️
         stage('Dependency Scan (npm audit)') {
             steps {
                 echo '🔎 Analyse des dépendances avec npm audit...'
                 dir('api') {
-                    // --audit-level=high vérifie les failles hautes et critiques
                     sh 'npm audit --audit-level=high || true'
                 }
                 dir('nextjs-portfolio') {
@@ -86,9 +84,33 @@ pipeline {
             }
         }
 
+        // ⬇️ NOUVEAU STAGE (Q67) ⬇️
+        stage('OWASP Dependency-Check') {
+            steps {
+                echo '🛡️ Analyse SCA avec OWASP Dependency-Check (peut être long au 1er lancement)...'
+                sh '''
+                    mkdir -p reports
+                    docker run --rm \\
+                    -v "$PWD:/src" \\
+                    -v "$PWD/reports:/report" \\
+                    owasp/dependency-check:latest \\
+                    --scan /src \\
+                    --format "HTML" --format "JSON" \\
+                    --project "DevSecOps Portfolio" \\
+                    --out /report \\
+                    --failOnCVSS 8 || true
+                '''
+            }
+            post {
+                always {
+                    archiveArtifacts artifacts: 'reports/dependency-check-report.html', allowEmptyArchive: true
+                }
+            }
+        }
+
         stage('API Tests') {
             steps {
-                echo '🧪 Exécution des tests unitaires de l\'API...'
+                echo '🧪 Exécution des tests unitaires de l\\'API...'
                 dir('api') {
                     sh 'npm run test -- __tests__/api.test.js'
                 }
@@ -106,7 +128,7 @@ pipeline {
 
         stage('Build') {
             steps {
-                echo '🏗️ Construction de l\'application Next.js...'
+                echo '🏗️ Construction de l\\'application Next.js...'
                 dir('nextjs-portfolio') {
                     sh 'npm run build'
                     sh 'ls -la .next/ | head -10'
