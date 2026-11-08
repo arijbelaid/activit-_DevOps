@@ -149,6 +149,22 @@ pipeline {
                 }
             }
         }
+
+        // ⬇️ NOUVEAU STAGE (Q68) ⬇️
+        stage('Trivy Image Scan') {
+            steps {
+                script {
+                    def gitSha = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
+                    echo "🛡️ Scan de sécurité des images Docker avec Trivy..."
+                    
+                    // Scan de l'image API
+                    sh "docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image --severity HIGH,CRITICAL devsecops-api:${gitSha} || true"
+                    
+                    // Scan de l'image Frontend
+                    sh "docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image --severity HIGH,CRITICAL devsecops-portfolio:${gitSha} || true"
+                }
+            }
+        }
     }
 
     post {
