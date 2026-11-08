@@ -1,3 +1,4 @@
+const { z } = require('zod');
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
@@ -78,6 +79,48 @@ app.get('/api/skills', (req, res) => {
   ];
   res.status(200).json(skills);
 });
+
+// Schéma de validation Zod (Q48)
+const contactSchema = z.object({
+  nom: z.string()
+    .min(2, "Le nom doit contenir au moins 2 caractères.")
+    .max(50, "Le nom est trop long."),
+  email: z.string()
+    .email("L'adresse email n'est pas valide."),
+  message: z.string()
+    .min(10, "Le message doit contenir au moins 10 caractères.")
+    .max(1000, "Le message est trop long (max 1000 caractères).")
+});
+
+// Route 5 : Formulaire de contact (Q46 + Q48)
+app.post('/api/contact', (req, res) => {
+  // Validation stricte avec Zod
+  const result = contactSchema.safeParse(req.body);
+
+  // Si la validation échoue, on renvoie une erreur 400
+  if (!result.success) {
+    return res.status(400).json({
+      status: "error",
+      message: "Données invalides.",
+      errors: result.error.errors.map(err => ({
+        champ: err.path[0],
+        message: err.message
+      }))
+    });
+  }
+
+  // Si la validation réussit, on utilise les données validées
+  const { nom, email, message } = result.data;
+
+  console.log(`📩 Nouveau message de ${nom} (${email}) : ${message}`);
+  
+  res.status(200).json({
+    status: "success",
+    message: "Votre message a bien été reçu !",
+    data: { nom, email, message }
+  });
+});
+
 // Démarrage du serveur
 app.listen(PORT, () => {
   console.log(`🚀 Serveur API démarré sur http://localhost:${PORT}`);
