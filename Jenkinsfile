@@ -46,7 +46,6 @@ pipeline {
             steps {
                 echo '🧪 Exécution des tests unitaires de l\'API...'
                 dir('api') {
-                    // On ne lance que les tests unitaires (pas besoin de BDD)
                     sh 'npm run test -- __tests__/api.test.js'
                 }
             }
@@ -68,6 +67,15 @@ pipeline {
                     sh 'npm run build'
                     sh 'ls -la .next/ | head -10'
                 }
+            }
+        }
+
+        // ⬇️ NOUVEAU STAGE POUR LA Q62 ⬇️
+        stage('Build Docker Images') {
+            steps {
+                echo '🐳 Construction des images Docker...'
+                sh 'docker build -t devsecops-api ./api'
+                sh 'docker build -t devsecops-portfolio ./nextjs-portfolio'
             }
         }
     }
