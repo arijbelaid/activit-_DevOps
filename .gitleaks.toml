@@ -1,0 +1,6 @@
+[allowlist]
+paths = [
+  '''docker-compose.yml''',
+  '''api/.env''',
+  '''api/__tests__/.*'''
+]
