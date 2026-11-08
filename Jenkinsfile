@@ -70,12 +70,21 @@ pipeline {
             }
         }
 
-        // ⬇️ NOUVEAU STAGE POUR LA Q62 ⬇️
         stage('Build Docker Images') {
             steps {
-                echo '🐳 Construction des images Docker...'
-                sh 'docker build -t devsecops-api ./api'
-                sh 'docker build -t devsecops-portfolio ./nextjs-portfolio'
+                script {
+                    // On récupère le SHA court (ex: a1b2c3d)
+                    def gitSha = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
+                    echo "🐳 Construction des images Docker avec le tag : ${gitSha}"
+                    
+                    // Construction avec le tag SHA
+                    sh "docker build -t devsecops-api:${gitSha} ./api"
+                    sh "docker build -t devsecops-portfolio:${gitSha} ./nextjs-portfolio"
+                    
+                    // On met aussi à jour le tag 'latest' pour le déploiement local
+                    sh "docker tag devsecops-api:${gitSha} devsecops-api:latest"
+                    sh "docker tag devsecops-portfolio:${gitSha} devsecops-portfolio:latest"
+                }
             }
         }
     }
