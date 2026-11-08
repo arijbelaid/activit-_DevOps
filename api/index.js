@@ -4,7 +4,11 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const { PrismaClient } = require('@prisma/client');
-require('dotenv').config();
+
+// On ne charge le .env que si on n'est pas en mode test (pour éviter le bruit dans Jest)
+if (process.env.NODE_ENV !== 'test') {
+  require('dotenv').config();
+}
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -150,7 +154,13 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Démarrage du serveur
-app.listen(PORT, () => {
-  console.log(`🚀 Serveur API démarré sur http://localhost:${PORT}`);
-});
+// Exporter l'application pour les tests
+module.exports = app;
+
+
+// Lancer le serveur uniquement si on n'est pas en mode test
+if (process.env.NODE_ENV !== 'test') {
+  app.listen(PORT, () => {
+    console.log(`🚀 Serveur API démarré sur http://localhost:${PORT}`);
+  });
+}

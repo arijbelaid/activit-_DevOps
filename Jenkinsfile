@@ -42,17 +42,16 @@ pipeline {
             }
         }
 
-        // ⬇️ NOUVEAU : Tests de l'API (Q61) ⬇️
         stage('API Tests') {
             steps {
-                echo '🧪 Exécution des tests de l\'API...'
+                echo '🧪 Exécution des tests unitaires de l\'API...'
                 dir('api') {
-                    sh 'npm run test'
+                    // On ne lance que les tests unitaires (pas besoin de BDD)
+                    sh 'npm run test -- __tests__/api.test.js'
                 }
             }
         }
 
-        // ⬇️ NOUVEAU : Tests du Frontend (Q61) ⬇️
         stage('Frontend Tests') {
             steps {
                 echo '🧪 Exécution des tests du Frontend...'
