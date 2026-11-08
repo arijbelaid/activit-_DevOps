@@ -28,6 +28,24 @@ pipeline {
             }
         }
 
+        // ⬇️ NOUVEAU STAGE SÉCURITÉ (Q64) ⬇️
+        stage('Secret Scan (Gitleaks)') {
+            steps {
+                echo '🔍 Analyse des secrets avec Gitleaks...'
+                sh '''
+                    docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:latest \
+                    detect --source /repo --report-format json \
+                    --report-path /repo/gitleaks.json --exit-code 1
+                '''
+            }
+            post {
+                always {
+                    // Archive le rapport JSON pour pouvoir le consulter depuis Jenkins
+                    archiveArtifacts artifacts: 'gitleaks.json', allowEmptyArchive: true
+                }
+            }
+        }
+
         stage('Install Dependencies') {
             steps {
                 echo '📦 Installation des dépendances API et Next.js...'
