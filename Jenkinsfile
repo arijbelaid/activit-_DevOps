@@ -28,7 +28,6 @@ pipeline {
             }
         }
 
-        // ⬇️ NOUVEAU STAGE SÉCURITÉ (Q64) ⬇️
         stage('Secret Scan (Gitleaks)') {
             steps {
                 echo '🔍 Analyse des secrets avec Gitleaks...'
@@ -40,9 +39,19 @@ pipeline {
             }
             post {
                 always {
-                    // Archive le rapport JSON pour pouvoir le consulter depuis Jenkins
                     archiveArtifacts artifacts: 'gitleaks.json', allowEmptyArchive: true
                 }
+            }
+        }
+
+        // ⬇️ NOUVEAU STAGE SAST (Q65) ⬇️
+        stage('Semgrep SAST') {
+            steps {
+                echo '🛡️ Analyse de sécurité statique (SAST) avec Semgrep...'
+                sh '''
+                    docker run --rm -v "$PWD:/src" -w /src semgrep/semgrep:latest \
+                    semgrep scan --config auto --error --exclude 'node_modules' --exclude '.next' --exclude 'dist'
+                '''
             }
         }
 
@@ -91,15 +100,12 @@ pipeline {
         stage('Build Docker Images') {
             steps {
                 script {
-                    // On récupère le SHA court (ex: a1b2c3d)
                     def gitSha = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
                     echo "🐳 Construction des images Docker avec le tag : ${gitSha}"
                     
-                    // Construction avec le tag SHA
                     sh "docker build -t devsecops-api:${gitSha} ./api"
                     sh "docker build -t devsecops-portfolio:${gitSha} ./nextjs-portfolio"
                     
-                    // On met aussi à jour le tag 'latest' pour le déploiement local
                     sh "docker tag devsecops-api:${gitSha} devsecops-api:latest"
                     sh "docker tag devsecops-portfolio:${gitSha} devsecops-portfolio:latest"
                 }
