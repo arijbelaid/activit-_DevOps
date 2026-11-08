@@ -20,6 +20,8 @@ RUN npx prisma generate
 # Exposition du port 5000 utilisé par l'API
 EXPOSE 5000
 
+USER node
+
 # Commande de démarrage de l'API
 CMD ["node", "index.js"]
-USER node
+
