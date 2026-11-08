@@ -72,6 +72,20 @@ pipeline {
             }
         }
 
+        // ⬇️ NOUVEAU STAGE (Q66) ⬇️
+        stage('Dependency Scan (npm audit)') {
+            steps {
+                echo '🔎 Analyse des dépendances avec npm audit...'
+                dir('api') {
+                    // --audit-level=high vérifie les failles hautes et critiques
+                    sh 'npm audit --audit-level=high || true'
+                }
+                dir('nextjs-portfolio') {
+                    sh 'npm audit --audit-level=high || true'
+                }
+            }
+        }
+
         stage('API Tests') {
             steps {
                 echo '🧪 Exécution des tests unitaires de l\'API...'
