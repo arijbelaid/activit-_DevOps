@@ -2271,4 +2271,24 @@ Docker Compose crée un réseau interne (`devsecops-network`) qui permet aux con
 
 ---
 
-# activit-_DevOps
+# activit-_Dev### 🌿 Stratégie Git et Convention de nommage (Question 79)
+
+Afin de garantir la stabilité du code et de faciliter la collaboration, le projet utilise une stratégie de branches stricte basée sur le **GitHub Flow** : `branch -> Pull Request (PR) -> review -> merge`.
+
+Il est formellement interdit de pousser directement sur la branche `main`. Toute modification doit passer par une branche dédiée et une Pull Request.
+
+**Convention de nommage des branches :**
+Les branches doivent suivre le format `type/description-courte` en anglais (kebab-case).
+- `feature/nom-de-la-fonctionnalite` : Pour ajouter une nouvelle fonctionnalité (ex: `feature/add-contact-form`).
+- `bugfix/nom-du-bug` : Pour corriger un bug non critique (ex: `bugfix/fix-api-timeout`).
+- `hotfix/nom-de-la-faille` : Pour corriger une faille critique en urgence (ex: `hotfix/cve-zod`).
+- `docs/sujet` : Pour les modifications liées à la documentation (ex: `docs/q79-git-strategy`).
+- `refactor/sujet` : Pour modifier le code sans changer son comportement (ex: `refactor/clean-dockerfile`).
+
+**Processus de validation :**
+1. Création de la branche depuis `main`.
+2. Développement et commits locaux.
+3. Push de la branche sur GitHub.
+4. Ouverture d'une Pull Request.
+5. **Review** : Les workflows GitHub Actions (CI, CodeQL) doivent passer au vert. Un pair (ou soi-même) relit le code.
+6. **Merge** : Fusion de la PR dans `main` et suppression de la branche.
