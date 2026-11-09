@@ -164,3 +164,4 @@ if (process.env.NODE_ENV !== 'test') {
     console.log(`🚀 Serveur API démarré sur http://localhost:${PORT}`);
   });
 }
+// Test release automatique
