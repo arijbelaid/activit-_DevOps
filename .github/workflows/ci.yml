@@ -1,4 +1,4 @@
-name: CI - Tests Automatisés
+name: CI - Tests Automatisés et Sécurité
 
 on:
   push:
@@ -9,8 +9,6 @@ on:
 jobs:
   test-api:
     runs-on: ubuntu-latest
-
-    # On lance un service PostgreSQL pour que les tests d'intégration fonctionnent
     services:
       postgres:
         image: postgres:15-alpine
@@ -45,13 +43,11 @@ jobs:
         working-directory: ./api
         run: npx prisma generate
 
-      # ⬇️ C'EST L'ÉTAPE QUI MANQUAIT POUR CRÉER LES TABLES ⬇️
-      - name: Application des migrations Prisma (Création des tables)
+      - name: Application des migrations Prisma
         working-directory: ./api
         env:
           DATABASE_URL: postgresql://arij:password123@localhost:5432/portfolio_db?schema=public
         run: npx prisma migrate deploy
-      # ⬆️ FIN DE L'ÉTAPE MANQUANTE ⬆️
 
       - name: Exécution des tests API
         working-directory: ./api
@@ -62,7 +58,6 @@ jobs:
 
   test-frontend:
     runs-on: ubuntu-latest
-
     steps:
       - name: Récupération du code
         uses: actions/checkout@v4
@@ -81,3 +76,43 @@ jobs:
       - name: Exécution des tests Frontend
         working-directory: ./nextjs-portfolio
         run: npm run test
+
+  security-scans:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Récupération du code
+        uses: actions/checkout@v4
+
+      # 1. SCAN DES SECRETS (GITLEAKS)
+      - name: Scan des secrets (Gitleaks)
+        run: |
+          docker run --rm -v ${{ github.workspace }}:/repo zricethezav/gitleaks:latest \
+          detect --source /repo --report-format json --exit-code 1
+
+      # 2. SAST (SEMGREP)
+      - name: Analyse SAST (Semgrep)
+        run: |
+          docker run --rm -v ${{ github.workspace }}:/src -w /src semgrep/semgrep:latest \
+          semgrep scan --config auto --error \
+          --exclude 'node_modules' --exclude '.next' --exclude 'dist' --exclude '.vagrant' \
+          --exclude-rule javascript.express.security.audit.express-check-csurf-middleware-usage.express-check-csurf-middleware-usage \
+          --exclude-rule typescript.react.security.react-insecure-request.react-insecure-request \
+          --exclude-rule javascript.lang.security.audit.unsafe-formatstring.unsafe-formatstring
+
+      # 3. CONTRÔLE DES DÉPENDANCES (NPM AUDIT)
+      - name: Installation de Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Contrôle des dépendances API (npm audit)
+        working-directory: ./api
+        run: |
+          npm install
+          npm audit --audit-level=high
+
+      - name: Contrôle des dépendances Frontend (npm audit)
+        working-directory: ./nextjs-portfolio
+        run: |
+          npm install
+          npm audit --audit-level=high
