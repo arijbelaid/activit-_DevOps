@@ -87,7 +87,7 @@ jobs:
       - name: Scan des secrets (Gitleaks)
         run: |
           docker run --rm -v ${{ github.workspace }}:/repo zricethezav/gitleaks:latest \
-          detect --source /repo --report-format json --exit-code 1
+          detect --source /repo --no-git --report-format json --exit-code 1
 
       # 2. SAST (SEMGREP)
       - name: Analyse SAST (Semgrep)
