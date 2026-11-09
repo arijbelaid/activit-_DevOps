@@ -117,7 +117,6 @@ jobs:
           npm install
           npm audit --audit-level=high || true
 
-  # ⬇️ NOUVEAU JOB POUR LA Q72 ⬇️
   build-docker-images:
     runs-on: ubuntu-latest
     steps:
@@ -129,3 +128,24 @@ jobs:
 
       - name: Construction de l'image Docker du Frontend
         run: docker build -t devsecops-portfolio:latest ./nextjs-portfolio
+
+      # ⬇️ NOUVEAU : SCAN TRIVY (Q73) ⬇️
+      - name: Scan Trivy de l'image API
+        uses: aquasec/trivy-action@master
+        with:
+          image-ref: 'devsecops-api:latest'
+          format: 'table'
+          exit-code: '0'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Scan Trivy de l'image Frontend
+        uses: aquasec/trivy-action@master
+        with:
+          image-ref: 'devsecops-portfolio:latest'
+          format: 'table'
+          exit-code: '0'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
