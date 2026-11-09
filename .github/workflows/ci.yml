@@ -127,7 +127,7 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Construction de l'image Docker de l'API
-        run: docker build -t devsecops-api:latest ./api
+        run: docker build --no-cache -t devsecops-api:latest ./api
 
       - name: Construction de l'image Docker du Frontend
         run: docker build -t devsecops-portfolio:latest ./nextjs-portfolio
