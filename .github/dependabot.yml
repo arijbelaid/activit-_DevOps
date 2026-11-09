@@ -1,0 +1,21 @@
+version: 2
+updates:
+  # Surveillance de l'API (Node.js)
+  - package-ecosystem: "npm"
+    directory: "/api"
+    schedule:
+      interval: "daily"
+    open-pull-requests-limit: 5
+
+  # Surveillance du Frontend (Next.js)
+  - package-ecosystem: "npm"
+    directory: "/nextjs-portfolio"
+    schedule:
+      interval: "daily"
+    open-pull-requests-limit: 5
+
+  # Surveillance des images Docker
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
