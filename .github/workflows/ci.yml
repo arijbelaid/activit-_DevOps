@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [ "main" ]
 
+# ⬇️ NOUVEAU : Restriction des permissions (Q76) ⬇️
+permissions:
+  contents: read
+
 jobs:
   test-api:
     runs-on: ubuntu-latest
@@ -129,7 +133,7 @@ jobs:
       - name: Construction de l'image Docker du Frontend
         run: docker build -t devsecops-portfolio:latest ./nextjs-portfolio
 
-      # ⬇️ SCAN TRIVY CORRIGÉ (aquasecurity) ⬇️
+      # SCAN TRIVY
       - name: Scan Trivy de l'image API
         uses: aquasecurity/trivy-action@master
         with:
