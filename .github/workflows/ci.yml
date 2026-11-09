@@ -1,0 +1,75 @@
+name: CI - Tests Automatisés
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  test-api:
+    runs-on: ubuntu-latest
+
+    # On lance un service PostgreSQL pour que les tests d'intégration fonctionnent
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: arij
+          POSTGRES_PASSWORD: password123
+          POSTGRES_DB: portfolio_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Récupération du code
+        uses: actions/checkout@v4
+
+      - name: Installation de Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: api/package-lock.json
+
+      - name: Installation des dépendances API
+        working-directory: ./api
+        run: npm install
+
+      - name: Génération du client Prisma
+        working-directory: ./api
+        run: npx prisma generate
+
+      - name: Exécution des tests API
+        working-directory: ./api
+        env:
+          DATABASE_URL: postgresql://arij:password123@localhost:5432/portfolio_db?schema=public
+          NODE_ENV: test
+        run: npm run test
+
+  test-frontend:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Récupération du code
+        uses: actions/checkout@v4
+
+      - name: Installation de Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: nextjs-portfolio/package-lock.json
+
+      - name: Installation des dépendances Frontend
+        working-directory: ./nextjs-portfolio
+        run: npm install
+
+      - name: Exécution des tests Frontend
+        working-directory: ./nextjs-portfolio
+        run: npm run test
