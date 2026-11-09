@@ -116,3 +116,16 @@ jobs:
         run: |
           npm install
           npm audit --audit-level=high || true
+
+  # ⬇️ NOUVEAU JOB POUR LA Q72 ⬇️
+  build-docker-images:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Récupération du code
+        uses: actions/checkout@v4
+
+      - name: Construction de l'image Docker de l'API
+        run: docker build -t devsecops-api:latest ./api
+
+      - name: Construction de l'image Docker du Frontend
+        run: docker build -t devsecops-portfolio:latest ./nextjs-portfolio
