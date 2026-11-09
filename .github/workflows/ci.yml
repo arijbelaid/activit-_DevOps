@@ -45,6 +45,14 @@ jobs:
         working-directory: ./api
         run: npx prisma generate
 
+      # ⬇️ C'EST L'ÉTAPE QUI MANQUAIT POUR CRÉER LES TABLES ⬇️
+      - name: Application des migrations Prisma (Création des tables)
+        working-directory: ./api
+        env:
+          DATABASE_URL: postgresql://arij:password123@localhost:5432/portfolio_db?schema=public
+        run: npx prisma migrate deploy
+      # ⬆️ FIN DE L'ÉTAPE MANQUANTE ⬆️
+
       - name: Exécution des tests API
         working-directory: ./api
         env:
