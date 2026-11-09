@@ -1,6 +1,7 @@
 [allowlist]
 paths = [
   '''docker-compose.yml''',
-  '''api/.env''',
-  '''api/__tests__/.*'''
+  '''api/.env.example''',
+  '''api/__tests__/.*''',
+  '''api/fake-secret.js'''
 ]
