@@ -8,7 +8,6 @@ pipeline {
     environment {
         HARBOR_URL = "192.168.159.129"
         HARBOR_PROJECT = "library"
-        HARBOR_CREDS = credentials('harbor-credentials') // À configurer dans Jenkins (Optionnel pour ce TP, on va utiliser le hardcode pour simplifier)
     }
 
     stages {
@@ -178,21 +177,21 @@ pipeline {
                     def gitSha = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
                     echo "🚢 Publication des images vers Harbor..."
 
-                    // Login Harbor (utilise les identifiants hardcodés pour le TP)
+                    // Login Harbor 
                     sh "docker login ${HARBOR_URL} -u admin -p Harbor12345"
 
-                    // Tag pour Harbor
+                    // Tag pour Harbor (API)
                     sh "docker tag devsecops-api:${gitSha} ${HARBOR_URL}/${HARBOR_PROJECT}/devsecops-api:${gitSha}"
-                    sh "docker tag devsecops-portfolio:${gitSha} ${HARBOR_URL}/${HARBOR_PROJECT}/devsecops-portfolio:${gitSha}"
-                    
-                    // Tag 'latest' pour Harbor
                     sh "docker tag devsecops-api:${gitSha} ${HARBOR_URL}/${HARBOR_PROJECT}/devsecops-api:latest"
+                    
+                    // Tag pour Harbor (Frontend)
+                    sh "docker tag devsecops-portfolio:${gitSha} ${HARBOR_URL}/${HARBOR_PROJECT}/devsecops-portfolio:${gitSha}"
                     sh "docker tag devsecops-portfolio:${gitSha} ${HARBOR_URL}/${HARBOR_PROJECT}/devsecops-portfolio:latest"
 
-                    // Push
+                    // Push vers Harbor
                     sh "docker push ${HARBOR_URL}/${HARBOR_PROJECT}/devsecops-api:${gitSha}"
-                    sh "docker push ${HARBOR_URL}/${HARBOR_PROJECT}/devsecops-portfolio:${gitSha}"
                     sh "docker push ${HARBOR_URL}/${HARBOR_PROJECT}/devsecops-api:latest"
+                    sh "docker push ${HARBOR_URL}/${HARBOR_PROJECT}/devsecops-portfolio:${gitSha}"
                     sh "docker push ${HARBOR_URL}/${HARBOR_PROJECT}/devsecops-portfolio:latest"
                 }
             }
