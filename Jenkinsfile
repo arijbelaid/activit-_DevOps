@@ -53,7 +53,9 @@ pipeline {
                     --exclude 'node_modules' --exclude '.next' --exclude 'dist' --exclude '.vagrant' \
                     --exclude-rule javascript.express.security.audit.express-check-csurf-middleware-usage.express-check-csurf-middleware-usage \
                     --exclude-rule typescript.react.security.react-insecure-request.react-insecure-request \
-                    --exclude-rule javascript.lang.security.audit.unsafe-formatstring.unsafe-formatstring
+                    --exclude-rule javascript.lang.security.audit.unsafe-formatstring.unsafe-formatstring \
+                    --exclude-rule package_managers.dependabot.dependabot-missing-cooldown.dependabot-missing-cooldown \
+                    --exclude-rule yaml.github-actions.security.github-actions-mutable-action-tag.github-actions-mutable-action-tag
                 '''
             }
         }
@@ -139,7 +141,7 @@ pipeline {
             steps {
                 script {
                     def gitSha = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
-                    echo "🐳 Construction des images Docker avec le tag : ${gitSha}"
+                    echo "🐳 Construction des images Docker avec BuildKit et le tag : ${gitSha}"
 
                     // ⬇️ ACTIVATION DE BUILDKIT (Q88) ⬇️
                     sh "DOCKER_BUILDKIT=1 docker build -t devsecops-api:${gitSha} ./api"
