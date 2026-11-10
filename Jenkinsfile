@@ -5,6 +5,12 @@ pipeline {
         nodejs 'nodejs-22'
     }
 
+    environment {
+        HARBOR_URL = "192.168.159.129"
+        HARBOR_PROJECT = "library"
+        HARBOR_CREDS = credentials('harbor-credentials') // À configurer dans Jenkins (Optionnel pour ce TP, on va utiliser le hardcode pour simplifier)
+    }
+
     stages {
         stage('Checkout') {
             steps {
@@ -161,6 +167,33 @@ pipeline {
                     
                     sh "docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image --exit-code 1 --severity HIGH,CRITICAL devsecops-api:${gitSha} || true"
                     sh "docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image --exit-code 1 --severity HIGH,CRITICAL devsecops-portfolio:${gitSha} || true"
+                }
+            }
+        }
+
+        // ⬇️ NOUVEAU STAGE POUR LA Q91 ⬇️
+        stage('Push to Harbor') {
+            steps {
+                script {
+                    def gitSha = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
+                    echo "🚢 Publication des images vers Harbor..."
+
+                    // Login Harbor (utilise les identifiants hardcodés pour le TP)
+                    sh "docker login ${HARBOR_URL} -u admin -p Harbor12345"
+
+                    // Tag pour Harbor
+                    sh "docker tag devsecops-api:${gitSha} ${HARBOR_URL}/${HARBOR_PROJECT}/devsecops-api:${gitSha}"
+                    sh "docker tag devsecops-portfolio:${gitSha} ${HARBOR_URL}/${HARBOR_PROJECT}/devsecops-portfolio:${gitSha}"
+                    
+                    // Tag 'latest' pour Harbor
+                    sh "docker tag devsecops-api:${gitSha} ${HARBOR_URL}/${HARBOR_PROJECT}/devsecops-api:latest"
+                    sh "docker tag devsecops-portfolio:${gitSha} ${HARBOR_URL}/${HARBOR_PROJECT}/devsecops-portfolio:latest"
+
+                    // Push
+                    sh "docker push ${HARBOR_URL}/${HARBOR_PROJECT}/devsecops-api:${gitSha}"
+                    sh "docker push ${HARBOR_URL}/${HARBOR_PROJECT}/devsecops-portfolio:${gitSha}"
+                    sh "docker push ${HARBOR_URL}/${HARBOR_PROJECT}/devsecops-api:latest"
+                    sh "docker push ${HARBOR_URL}/${HARBOR_PROJECT}/devsecops-portfolio:latest"
                 }
             }
         }
