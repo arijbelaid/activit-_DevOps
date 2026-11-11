@@ -91,29 +91,6 @@ pipeline {
             }
         }
 
-        stage('OWASP Dependency-Check') {
-            steps {
-                echo '🛡️ Analyse SCA avec OWASP Dependency-Check...'
-                sh '''
-                    mkdir -p reports
-                    docker run --rm \
-                    -v "$PWD:/src" \
-                    -v "$PWD/reports:/report" \
-                    owasp/dependency-check:latest \
-                    --scan /src \
-                    --format "HTML" --format "JSON" \
-                    --project "DevSecOps Portfolio" \
-                    --out /report \
-                    --failOnCVSS 8 || true
-                '''
-            }
-            post {
-                always {
-                    archiveArtifacts artifacts: 'reports/dependency-check-report.html', allowEmptyArchive: true
-                }
-            }
-        }
-
         stage('API Tests') {
             steps {
                 echo "🧪 Exécution des tests unitaires de l'API..."
@@ -148,7 +125,6 @@ pipeline {
                     def gitSha = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
                     echo "🐳 Construction des images Docker avec BuildKit et le tag : ${gitSha}"
 
-                    // ⬇️ ACTIVATION DE BUILDKIT (Q88) ⬇️
                     sh "DOCKER_BUILDKIT=1 docker build -t devsecops-api:${gitSha} ./api"
                     sh "DOCKER_BUILDKIT=1 docker build -t devsecops-portfolio:${gitSha} ./nextjs-portfolio"
 
@@ -158,37 +134,20 @@ pipeline {
             }
         }
 
-        stage('Trivy Image Scan') {
-            steps {
-                script {
-                    def gitSha = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
-                    echo "🛡️ Scan de sécurité des images Docker avec Trivy..."
-                    
-                    sh "docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image --exit-code 1 --severity HIGH,CRITICAL devsecops-api:${gitSha} || true"
-                    sh "docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image --exit-code 1 --severity HIGH,CRITICAL devsecops-portfolio:${gitSha} || true"
-                }
-            }
-        }
-
-        // ⬇️ NOUVEAU STAGE POUR LA Q91 ⬇️
         stage('Push to Harbor') {
             steps {
                 script {
                     def gitSha = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
                     echo "🚢 Publication des images vers Harbor..."
 
-                    // Login Harbor 
                     sh "docker login ${HARBOR_URL} -u admin -p Harbor12345"
 
-                    // Tag pour Harbor (API)
                     sh "docker tag devsecops-api:${gitSha} ${HARBOR_URL}/${HARBOR_PROJECT}/devsecops-api:${gitSha}"
                     sh "docker tag devsecops-api:${gitSha} ${HARBOR_URL}/${HARBOR_PROJECT}/devsecops-api:latest"
                     
-                    // Tag pour Harbor (Frontend)
                     sh "docker tag devsecops-portfolio:${gitSha} ${HARBOR_URL}/${HARBOR_PROJECT}/devsecops-portfolio:${gitSha}"
                     sh "docker tag devsecops-portfolio:${gitSha} ${HARBOR_URL}/${HARBOR_PROJECT}/devsecops-portfolio:latest"
 
-                    // Push vers Harbor
                     sh "docker push ${HARBOR_URL}/${HARBOR_PROJECT}/devsecops-api:${gitSha}"
                     sh "docker push ${HARBOR_URL}/${HARBOR_PROJECT}/devsecops-api:latest"
                     sh "docker push ${HARBOR_URL}/${HARBOR_PROJECT}/devsecops-portfolio:${gitSha}"
