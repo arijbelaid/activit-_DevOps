@@ -91,6 +91,32 @@ pipeline {
             }
         }
 
+        // ⬇️ OWASP DÉSACTIVÉ TEMPORAIREMENT POUR ÉVITER LE CRASH DISQUE ⬇️
+        /*
+        stage('OWASP Dependency-Check') {
+            steps {
+                echo '🛡️ Analyse SCA avec OWASP Dependency-Check...'
+                sh '''
+                    mkdir -p reports
+                    docker run --rm \
+                    -v "$PWD:/src" \
+                    -v "$PWD/reports:/report" \
+                    owasp/dependency-check:latest \
+                    --scan /src \
+                    --format "HTML" --format "JSON" \
+                    --project "DevSecOps Portfolio" \
+                    --out /report \
+                    --failOnCVSS 8 || true
+                '''
+            }
+            post {
+                always {
+                    archiveArtifacts artifacts: 'reports/dependency-check-report.html', allowEmptyArchive: true
+                }
+            }
+        }
+        */
+
         stage('API Tests') {
             steps {
                 echo "🧪 Exécution des tests unitaires de l'API..."
@@ -125,6 +151,7 @@ pipeline {
                     def gitSha = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
                     echo "🐳 Construction des images Docker avec BuildKit et le tag : ${gitSha}"
 
+                    // ACTIVATION DE BUILDKIT (Q88)
                     sh "DOCKER_BUILDKIT=1 docker build -t devsecops-api:${gitSha} ./api"
                     sh "DOCKER_BUILDKIT=1 docker build -t devsecops-portfolio:${gitSha} ./nextjs-portfolio"
 
@@ -133,6 +160,51 @@ pipeline {
                 }
             }
         }
+
+        // ⬇️ NOUVEAU STAGE POUR LA Q96 ⬇️
+        stage('Generate SBOM with Syft') {
+            steps {
+                script {
+                    def gitSha = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
+                    echo "📄 Génération des SBOM avec Syft pour les images..."
+
+                    // SBOM pour l'API
+                    sh """
+                        docker run --rm -v /var/run/docker.sock:/var/run/docker.sock anchore/syft:latest \
+                        docker:devsecops-api:${gitSha} \
+                        -o spdx-json > sbom-api-${gitSha}.spdx.json
+                    """
+
+                    // SBOM pour le Frontend
+                    sh """
+                        docker run --rm -v /var/run/docker.sock:/var/run/docker.sock anchore/syft:latest \
+                        docker:devsecops-portfolio:${gitSha} \
+                        -o spdx-json > sbom-frontend-${gitSha}.spdx.json
+                    """
+                }
+            }
+            post {
+                always {
+                    // Archiver les fichiers SBOM pour pouvoir les consulter depuis Jenkins
+                    archiveArtifacts artifacts: 'sbom-*.spdx.json', allowEmptyArchive: true
+                }
+            }
+        }
+
+        // ⬇️ TRIVY DÉSACTIVÉ TEMPORAIREMENT POUR ÉVITER LE CRASH DISQUE ⬇️
+        /*
+        stage('Trivy Image Scan') {
+            steps {
+                script {
+                    def gitSha = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
+                    echo "🛡️ Scan de sécurité des images Docker avec Trivy..."
+
+                    sh "docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image --exit-code 1 --severity HIGH,CRITICAL devsecops-api:${gitSha} || true"
+                    sh "docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image --exit-code 1 --severity HIGH,CRITICAL devsecops-portfolio:${gitSha} || true"
+                }
+            }
+        }
+        */
 
         stage('Push to Harbor') {
             steps {
