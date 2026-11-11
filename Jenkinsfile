@@ -138,16 +138,20 @@ pipeline {
             steps {
                 script {
                     def gitSha = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
-                    echo "🚢 Publication des images vers Harbor..."
+                    echo "🚢 Publication des images vers Harbor avec le Robot Account..."
 
-                    sh "docker login ${HARBOR_URL} -u admin -p Harbor12345"
+                    // Authentification avec le Robot Account (Q92)
+                    sh "docker login ${HARBOR_URL} -u 'robot\$library+robot-jenkins' -p '78Q8ns1zxwyuLaWK5sOx7pDun1hmB9aG'"
 
+                    // Tag pour Harbor (API)
                     sh "docker tag devsecops-api:${gitSha} ${HARBOR_URL}/${HARBOR_PROJECT}/devsecops-api:${gitSha}"
                     sh "docker tag devsecops-api:${gitSha} ${HARBOR_URL}/${HARBOR_PROJECT}/devsecops-api:latest"
-                    
+
+                    // Tag pour Harbor (Frontend)
                     sh "docker tag devsecops-portfolio:${gitSha} ${HARBOR_URL}/${HARBOR_PROJECT}/devsecops-portfolio:${gitSha}"
                     sh "docker tag devsecops-portfolio:${gitSha} ${HARBOR_URL}/${HARBOR_PROJECT}/devsecops-portfolio:latest"
 
+                    // Push vers Harbor
                     sh "docker push ${HARBOR_URL}/${HARBOR_PROJECT}/devsecops-api:${gitSha}"
                     sh "docker push ${HARBOR_URL}/${HARBOR_PROJECT}/devsecops-api:latest"
                     sh "docker push ${HARBOR_URL}/${HARBOR_PROJECT}/devsecops-portfolio:${gitSha}"
