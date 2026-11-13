@@ -6,7 +6,7 @@ on:
   pull_request:
     branches: [ main ]
 
-# Permissions globales (nécessaires pour Q101 et GHCR)
+# Permissions globales
 permissions:
   contents: read
   packages: write
@@ -43,13 +43,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # ⬅️ CORRECTION ICI : Récupère tout l'historique Git pour Gitleaks
-          
+          fetch-depth: 0  # Récupère tout l'historique Git pour Gitleaks
+
       - name: Run Gitleaks (Secrets Scan)
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          
+
       - name: Run npm audit (Dependencies)
         run: |
           cd api && npm audit --audit-level=high || true
@@ -111,3 +111,18 @@ jobs:
           subject-name: ghcr.io/${{ github.repository }}/devsecops-portfolio
           subject-digest: ${{ steps.build-frontend.outputs.digest }}
           push-to-registry: true
+
+  # ⬇️ JOB Q104 : VÉRIFICATION STRICTE DE LA PROVENANCE (REFUS SI NON ATTESTÉE) ⬇️
+  verify-images:
+    runs-on: ubuntu-latest
+    needs: build-and-attest
+    steps:
+      - name: Verify API Image Attestation (Enforce)
+        run: gh attestation verify oci://ghcr.io/${{ github.repository }}/devsecops-api:${{ github.sha }} --repo ${{ github.repository }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify Frontend Image Attestation (Enforce)
+        run: gh attestation verify oci://ghcr.io/${{ github.repository }}/devsecops-portfolio:${{ github.sha }} --repo ${{ github.repository }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

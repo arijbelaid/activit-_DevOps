@@ -190,7 +190,7 @@ pipeline {
                 script {
                     def gitSha = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
                     echo "✍️ Signature des images avec Cosign..."
-                    
+
                     withCredentials([
                         file(credentialsId: 'cosign-private-key', variable: 'COSIGN_PRIVATE_KEY'),
                         string(credentialsId: 'cosign-password', variable: 'COSIGN_PASSWORD')
@@ -210,25 +210,25 @@ pipeline {
             }
         }
 
-        // ⬇️ STAGE Q100 : VÉRIFICATION AVANT UTILISATION ⬇️
-        stage('Verify Image Signature') {
+        // ⬇️ STAGE Q100 & Q104 : VÉRIFICATION STRICTE (REFUS SI NON SIGNÉE) ⬇️
+        stage('Verify Image Signature (Enforce)') {
             steps {
                 script {
                     def gitSha = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
-                    echo "🕵️ Vérification de la signature des images avant utilisation..."
-                    
+                    echo "🕵️ Vérification stricte de la signature des images avant utilisation..."
+
                     withCredentials([
                         file(credentialsId: 'cosign-public-key', variable: 'COSIGN_PUBLIC_KEY')
                     ]) {
-                        // Vérifier l'image API
+                        // Vérifier l'image API et ÉCHOUER si non signée
                         sh """
                             IMAGE_DIGEST=\$(docker inspect --format='{{index .RepoDigests 0}}' ${HARBOR_URL}/${HARBOR_PROJECT}/devsecops-api:${gitSha})
-                            cosign verify --key \$COSIGN_PUBLIC_KEY \$IMAGE_DIGEST
+                            cosign verify --key \$COSIGN_PUBLIC_KEY \$IMAGE_DIGEST || exit 1
                         """
-                        // Vérifier l'image Frontend
+                        // Vérifier l'image Frontend et ÉCHOUER si non signée
                         sh """
                             IMAGE_DIGEST=\$(docker inspect --format='{{index .RepoDigests 0}}' ${HARBOR_URL}/${HARBOR_PROJECT}/devsecops-portfolio:${gitSha})
-                            cosign verify --key \$COSIGN_PUBLIC_KEY \$IMAGE_DIGEST
+                            cosign verify --key \$COSIGN_PUBLIC_KEY \$IMAGE_DIGEST || exit 1
                         """
                     }
                 }
