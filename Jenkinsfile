@@ -210,7 +210,7 @@ pipeline {
             }
         }
 
-        // ⬇️ STAGE Q100 & Q104 : VÉRIFICATION STRICTE (REFUS SI NON SIGNÉE) ⬇️
+        // ⬇️ STAGE Q100 & Q104 & Q105 : VÉRIFICATION STRICTE ⬇️
         stage('Verify Image Signature (Enforce)') {
             steps {
                 script {
