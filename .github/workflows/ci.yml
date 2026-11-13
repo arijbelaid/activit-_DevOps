@@ -6,7 +6,7 @@ on:
   pull_request:
     branches: [ main ]
 
-# Permissions pour Q101 (Attestation)
+# Permissions globales (nécessaires pour Q101 et GHCR)
 permissions:
   contents: read
   packages: write
@@ -42,10 +42,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # ⬅️ CORRECTION ICI : Récupère tout l'historique Git pour Gitleaks
+          
       - name: Run Gitleaks (Secrets Scan)
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          
       - name: Run npm audit (Dependencies)
         run: |
           cd api && npm audit --audit-level=high || true
@@ -61,7 +65,7 @@ jobs:
       - name: Build Frontend Image
         run: docker build -t devsecops-portfolio:${{ github.sha }} ./nextjs-portfolio
 
-  # ⬇️ NOUVEAU JOB Q101 : ATTESTATION ⬇️
+  # ⬇️ JOB Q101 : ATTESTATION DE PROVENANCE ⬇️
   build-and-attest:
     runs-on: ubuntu-latest
     steps:
