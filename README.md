@@ -2293,3 +2293,4 @@ Les branches doivent suivre le format `type/description-courte` en anglais (keba
 5. **Review** : Les workflows GitHub Actions (CI, CodeQL) doivent passer au vert. Un pair (ou soi-même) relit le code.
 6. **Merge** : Fusion de la PR dans `main` et suppression de la branche.
 Déclenchement de la release automatique
+Release test
