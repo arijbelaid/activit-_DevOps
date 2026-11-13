@@ -184,7 +184,7 @@ pipeline {
             }
         }
 
-        // ⬇️ NOUVEAU STAGE POUR LA Q99 ⬇️
+        // ⬇️ STAGE Q99 : SIGNATURE ⬇️
         stage('Sign Images with Cosign') {
             steps {
                 script {
@@ -204,6 +204,31 @@ pipeline {
                         sh """
                             IMAGE_DIGEST=\$(docker inspect --format='{{index .RepoDigests 0}}' ${HARBOR_URL}/${HARBOR_PROJECT}/devsecops-portfolio:${gitSha})
                             cosign sign --key \$COSIGN_PRIVATE_KEY -y \$IMAGE_DIGEST
+                        """
+                    }
+                }
+            }
+        }
+
+        // ⬇️ STAGE Q100 : VÉRIFICATION AVANT UTILISATION ⬇️
+        stage('Verify Image Signature') {
+            steps {
+                script {
+                    def gitSha = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
+                    echo "🕵️ Vérification de la signature des images avant utilisation..."
+                    
+                    withCredentials([
+                        file(credentialsId: 'cosign-public-key', variable: 'COSIGN_PUBLIC_KEY')
+                    ]) {
+                        // Vérifier l'image API
+                        sh """
+                            IMAGE_DIGEST=\$(docker inspect --format='{{index .RepoDigests 0}}' ${HARBOR_URL}/${HARBOR_PROJECT}/devsecops-api:${gitSha})
+                            cosign verify --key \$COSIGN_PUBLIC_KEY \$IMAGE_DIGEST
+                        """
+                        // Vérifier l'image Frontend
+                        sh """
+                            IMAGE_DIGEST=\$(docker inspect --format='{{index .RepoDigests 0}}' ${HARBOR_URL}/${HARBOR_PROJECT}/devsecops-portfolio:${gitSha})
+                            cosign verify --key \$COSIGN_PUBLIC_KEY \$IMAGE_DIGEST
                         """
                     }
                 }
