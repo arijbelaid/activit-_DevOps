@@ -1,4 +1,4 @@
-kname: CI - Tests Automatisés et Sécurité
+name: CI - Tests Automatisés et Sécurité
 
 on:
   push:
@@ -119,15 +119,15 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        
+
       - name: Install Cosign
         uses: sigstore/cosign-installer@v3
-        
+
       - name: Create cosign public key file
         run: echo "${{ secrets.COSIGN_PUBLIC_KEY }}" > cosign.pub
 
       - name: Verify API Image Signature (Enforce)
         run: cosign verify --key cosign.pub ghcr.io/${{ github.repository }}/devsecops-api:${{ github.sha }}
-        
+
       - name: Verify Frontend Image Signature (Enforce)
         run: cosign verify --key cosign.pub ghcr.io/${{ github.repository }}/devsecops-portfolio:${{ github.sha }}
