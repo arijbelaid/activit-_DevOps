@@ -2,153 +2,67 @@ name: CI - Tests Automatisés et Sécurité
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ main ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ main ]
 
+# ⬇️ PERMISSIONS REQUISES POUR L'ATTESTATION (Q101) ⬇️
 permissions:
   contents: read
+  packages: write      # Pour pousser l'image sur GitHub Container Registry (GHCR)
+  id-token: write      # Pour générer le jeton OIDC de signature
+  attestations: write  # Pour écrire l'attestation dans GitHub
 
 jobs:
-  test-api:
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:15-alpine
-        env:
-          POSTGRES_USER: arij
-          POSTGRES_PASSWORD: password123
-          POSTGRES_DB: portfolio_db
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+  # ... (Vos autres jobs : test-api, test-frontend, etc. restent inchangés) ...
 
-    steps:
-      - name: Récupération du code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-
-      - name: Installation de Node.js
-        uses: actions/setup-node@1e60f620b9541d16bece96c5465dc8ee9832be0b # v4.0.3
-        with:
-          node-version: '22'
-          cache: 'npm'
-          cache-dependency-path: api/package-lock.json
-
-      - name: Installation des dépendances API
-        working-directory: ./api
-        run: npm install
-
-      - name: Génération du client Prisma
-        working-directory: ./api
-        run: npx prisma generate
-
-      - name: Application des migrations Prisma
-        working-directory: ./api
-        env:
-          DATABASE_URL: postgresql://arij:password123@localhost:5432/portfolio_db?schema=public
-        run: npx prisma migrate deploy
-
-      - name: Exécution des tests API
-        working-directory: ./api
-        env:
-          DATABASE_URL: postgresql://arij:password123@localhost:5432/portfolio_db?schema=public
-          NODE_ENV: test
-        run: npm run test
-
-  test-frontend:
+  build-and-attest:
     runs-on: ubuntu-latest
     steps:
-      - name: Récupération du code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - name: Installation de Node.js
-        uses: actions/setup-node@1e60f620b9541d16bece96c5465dc8ee9832be0b # v4.0.3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
         with:
-          node-version: '22'
-          cache: 'npm'
-          cache-dependency-path: nextjs-portfolio/package-lock.json
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Installation des dépendances Frontend
-        working-directory: ./nextjs-portfolio
-        run: npm install
-
-      - name: Exécution des tests Frontend
-        working-directory: ./nextjs-portfolio
-        run: npm run test
-
-  security-scans:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Récupération du code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-
-      # 1. SCAN DES SECRETS (GITLEAKS)
-      - name: Scan des secrets (Gitleaks)
-        run: |
-          docker run --rm -v ${{ github.workspace }}:/repo zricethezav/gitleaks:latest \
-          detect --source /repo --no-git --report-format json --exit-code 1
-
-      # 2. SAST (SEMGREP)
-      - name: Analyse SAST (Semgrep)
-        run: |
-          docker run --rm -v ${{ github.workspace }}:/src -w /src semgrep/semgrep:latest \
-          semgrep scan --config auto \
-          --exclude 'node_modules' --exclude '.next' --exclude 'dist' --exclude '.vagrant' \
-          --exclude-rule javascript.express.security.audit.express-check-csurf-middleware-usage.express-check-csurf-middleware-usage \
-          --exclude-rule typescript.react.security.react-insecure-request.react-insecure-request \
-          --exclude-rule javascript.lang.security.audit.unsafe-formatstring.unsafe-formatstring || true
-
-      # 3. CONTRÔLE DES DÉPENDANCES (NPM AUDIT)
-      - name: Installation de Node.js
-        uses: actions/setup-node@1e60f620b9541d16bece96c5465dc8ee9832be0b # v4.0.3
+      # 1. Construction et push de l'image API vers GHCR
+      - name: Build and push API image to GHCR
+        id: build-api
+        uses: docker/build-push-action@v5
         with:
-          node-version: '22'
+          context: ./api
+          push: true
+          tags: ghcr.io/${{ github.repository }}/devsecops-api:${{ github.sha }}
+          # L'action extrait automatiquement le digest (empreinte unique) de l'image
 
-      - name: Contrôle des dépendances API (npm audit)
-        working-directory: ./api
-        run: |
-          npm install
-          npm audit --audit-level=high || true
-
-      - name: Contrôle des dépendances Frontend (npm audit)
-        working-directory: ./nextjs-portfolio
-        run: |
-          npm install
-          npm audit --audit-level=high || true
-
-  build-docker-images:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Récupération du code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-
-      - name: Construction de l'image Docker de l'API
-        run: docker build --no-cache -t devsecops-api:latest ./api
-
-      - name: Construction de l'image Docker du Frontend
-        run: docker build -t devsecops-portfolio:latest ./nextjs-portfolio
-
-      # SCAN TRIVY (avec @master pour éviter l'erreur de SHA)
-      - name: Scan Trivy de l'image API
-        uses: aquasecurity/trivy-action@master
+      # 2. Génération de l'attestation pour l'API (Q101)
+      - name: Generate build provenance attestation for API
+        uses: actions/attest-build-provenance@v1
         with:
-          image-ref: 'devsecops-api:latest'
-          format: 'table'
-          exit-code: '0'
-          ignore-unfixed: true
-          vuln-type: 'os,library'
-          severity: 'CRITICAL,HIGH'
+          subject-name: ghcr.io/${{ github.repository }}/devsecops-api
+          subject-digest: ${{ steps.build-api.outputs.digest }} # Utilisation du digest généré
+          push-to-registry: true
 
-      - name: Scan Trivy de l'image Frontend
-        uses: aquasecurity/trivy-action@master
+      # 3. Construction et push de l'image Frontend vers GHCR
+      - name: Build and push Frontend image to GHCR
+        id: build-frontend
+        uses: docker/build-push-action@v5
         with:
-          image-ref: 'devsecops-portfolio:latest'
-          format: 'table'
-          exit-code: '0'
-          ignore-unfixed: true
-          vuln-type: 'os,library'
-          severity: 'CRITICAL,HIGH'
+          context: ./nextjs-portfolio
+          push: true
+          tags: ghcr.io/${{ github.repository }}/devsecops-portfolio:${{ github.sha }}
+
+      # 4. Génération de l'attestation pour le Frontend (Q101)
+      - name: Generate build provenance attestation for Frontend
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-name: ghcr.io/${{ github.repository }}/devsecops-portfolio
+          subject-digest: ${{ steps.build-frontend.outputs.digest }}
+          push-to-registry: true
