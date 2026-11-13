@@ -9,7 +9,16 @@
         "changelogFile": "CHANGELOG.md"
       }
     ],
-    "@semantic-release/github",
+    [
+      "@semantic-release/github",
+      {
+        "assets": [
+          {"path": "../sbom-root.spdx.json", "label": "SBOM (Racine)"},
+          {"path": "../sbom-api.spdx.json", "label": "SBOM (API)"},
+          {"path": "../sbom-frontend.spdx.json", "label": "SBOM (Frontend)"}
+        ]
+      }
+    ],
     [
       "@semantic-release/git",
       {
