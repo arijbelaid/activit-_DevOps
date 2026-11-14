@@ -65,6 +65,31 @@ pipeline {
             }
         }
 
+        // ⬇️ NOUVEAU STAGE Q129 : SCAN IaC AVEC CHECKOV ⬇️
+        stage('Scan IaC (Checkov)') {
+            steps {
+                echo '🛡️ Analyse de sécurité du code Terraform avec Checkov...'
+                sh '''
+                    docker run --rm \
+                      -v "$PWD/terraform-floci:/tf" \
+                      bridgecrew/checkov:latest \
+                      -d /tf \
+                      --framework terraform \
+                      --output cli \
+                      --output junitxml \
+                      --output-file-path console,checkov-report.xml || true
+                '''
+            }
+            post {
+                always {
+                    // Publie le rapport dans l'interface Jenkins (onglet Tests)
+                    junit 'checkov-report.xml', allowEmptyResults: true
+                    // Archive le fichier pour pouvoir le télécharger
+                    archiveArtifacts artifacts: 'checkov-report.xml', allowEmptyArchive: true
+                }
+            }
+        }
+
         stage('Install Dependencies') {
             steps {
                 echo '📦 Installation des dépendances API et Next.js...'
