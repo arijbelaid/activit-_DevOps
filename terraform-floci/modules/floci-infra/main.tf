@@ -1,6 +1,6 @@
 resource "aws_s3_bucket" "mon_bucket" {
   bucket = var.bucket_name
-  acl    = "public-read" # ⬅️ FAILLE INTENTIONNELLE (Q130)
+  
 }
 
 resource "aws_sqs_queue" "ma_file" {
