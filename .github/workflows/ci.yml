@@ -126,3 +126,62 @@ jobs:
         run: gh attestation verify oci://ghcr.io/${{ github.repository }}/devsecops-portfolio:${{ github.sha }} --repo ${{ github.repository }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ⬇️ JOB Q116 : TESTS D'INTÉGRATION AVEC FLOCI EN SERVICE CONTAINER ⬇️
+  integration-tests:
+    runs-on: ubuntu-latest
+    
+    services:
+      floci:
+        image: floci/floci
+        ports:
+          - 4566:4566
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: arij
+          POSTGRES_PASSWORD: password123
+          POSTGRES_DB: portfolio_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          
+      - name: Install dependencies
+        run: cd api && npm install
+        
+      - name: Setup Database
+        env:
+          DATABASE_URL: postgresql://arij:password123@localhost:5432/portfolio_db?schema=public
+        run: |
+          cd api
+          npx prisma migrate deploy
+          
+      - name: Create SQS Queue in Floci
+        env:
+          AWS_ACCESS_KEY_ID: test
+          AWS_SECRET_ACCESS_KEY: test
+          AWS_DEFAULT_REGION: us-east-1
+        run: |
+          sudo apt-get update && sudo apt-get install -y awscli
+          aws --endpoint-url http://localhost:4566 sqs create-queue --queue-name ma-file-de-test
+          
+      - name: Run Integration Tests
+        env:
+          DATABASE_URL: postgresql://arij:password123@localhost:5432/portfolio_db?schema=public
+          AWS_ENDPOINT_URL: http://localhost:4566
+          AWS_ACCESS_KEY_ID: test
+          AWS_SECRET_ACCESS_KEY: test
+        run: |
+          cd api
+          npm run test
