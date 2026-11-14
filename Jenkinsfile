@@ -71,9 +71,10 @@ pipeline {
                 echo '🛡️ Analyse de sécurité du code Terraform avec Checkov...'
                 sh '''
                     docker run --rm \
-                      -v "$PWD/terraform-floci:/tf" \
+                      -v "$PWD:/workspace" \
+                      -w /workspace \
                       bridgecrew/checkov:latest \
-                      -d /tf \
+                      -d terraform-floci \
                       --framework terraform \
                       --output cli \
                       --output junitxml \
@@ -82,9 +83,7 @@ pipeline {
             }
             post {
                 always {
-                    // Publie le rapport dans l'interface Jenkins (onglet Tests)
                     junit 'checkov-report.xml', allowEmptyResults: true
-                    // Archive le fichier pour pouvoir le télécharger
                     archiveArtifacts artifacts: 'checkov-report.xml', allowEmptyArchive: true
                 }
             }
