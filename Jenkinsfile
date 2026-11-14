@@ -1,4 +1,4 @@
-pipeline {
+kpipeline {
     agent any
 
     tools {
@@ -65,7 +65,7 @@ pipeline {
             }
         }
 
-        // ⬇️ NOUVEAU STAGE Q129 : SCAN IaC AVEC CHECKOV ⬇️
+        // ⬇️ STAGE Q129 & Q130 : SCAN IaC AVEC CHECKOV (SANS || true) ⬇️
         stage('Scan IaC (Checkov)') {
             steps {
                 echo '🛡️ Analyse de sécurité du code Terraform avec Checkov...'
@@ -78,7 +78,7 @@ pipeline {
                       --framework terraform \
                       --output cli \
                       --output junitxml \
-                      --output-file-path console,checkov-report.xml || true
+                      --output-file-path console,checkov-report.xml
                 '''
             }
             post {
