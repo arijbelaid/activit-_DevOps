@@ -83,7 +83,7 @@ pipeline {
             }
             post {
                 always {
-                    junit 'checkov-report.xml', allowEmptyResults: true
+                    junit testResults: 'checkov-report.xml', allowEmptyResults: true
                     archiveArtifacts artifacts: 'checkov-report.xml', allowEmptyArchive: true
                 }
             }
