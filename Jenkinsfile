@@ -1,4 +1,4 @@
-kpipeline {
+pipeline {
     agent any
 
     tools {
@@ -65,7 +65,7 @@ kpipeline {
             }
         }
 
-        // ⬇️ STAGE Q129 & Q130 : SCAN IaC AVEC CHECKOV (SANS || true) ⬇️
+        // ⬇️ STAGE Q129 & Q130 : SCAN IaC AVEC CHECKOV (SANS || true pour la Q130) ⬇️
         stage('Scan IaC (Checkov)') {
             steps {
                 echo '🛡️ Analyse de sécurité du code Terraform avec Checkov...'
