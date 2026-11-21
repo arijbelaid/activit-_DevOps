@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-nonconforme
+  namespace: devsecops-portfolio
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test-nonconforme
+  template:
+    metadata:
+      labels:
+        app: test-nonconforme
+    spec:
+      containers:
+      - name: test
+        image: nginx:latest
+        securityContext:
+          privileged: true

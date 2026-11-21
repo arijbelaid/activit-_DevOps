@@ -1,0 +1,26 @@
+apiVersion: policies.kyverno.io/v1
+kind: ValidatingPolicy
+metadata:
+  name: require-run-as-nonroot
+spec:
+  validationActions:
+    - Deny
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["pods"]
+  variables:
+    - name: ctnrs
+      expression: >-
+        object.spec.containers +
+        object.spec.?initContainers.orValue([]) +
+        object.spec.?ephemeralContainers.orValue([])
+  validations:
+    - expression: >-
+        (object.spec.?securityContext.?runAsNonRoot.orValue(false) == true &&
+        variables.ctnrs.all(c, c.?securityContext.?runAsNonRoot.orValue(true) == true))
+        ||
+        variables.ctnrs.all(c, c.?securityContext.?runAsNonRoot.orValue(false) == true)
+      message: "Le conteneur doit définir securityContext.runAsNonRoot=true (au niveau du pod ou de chaque conteneur)."

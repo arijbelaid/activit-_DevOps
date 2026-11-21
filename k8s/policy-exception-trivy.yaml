@@ -1,0 +1,14 @@
+apiVersion: policies.kyverno.io/v1
+kind: PolicyException
+metadata:
+  name: allow-trivy-scan-jobs
+  namespace: trivy-system
+spec:
+  policyRefs:
+    - name: require-run-as-nonroot
+      kind: ValidatingPolicy
+    - name: require-resources
+      kind: ValidatingPolicy
+  matchConditions:
+    - name: exclude-trivy-namespace
+      expression: "object.metadata.namespace == 'trivy-system'"
