@@ -5,37 +5,52 @@ pipeline {
         nodejs 'nodejs-22'
     }
 
+    options {
+        timestamps()
+        disableConcurrentBuilds()
+    }
+
     environment {
-        HARBOR_URL = "192.168.159.129"
-        HARBOR_PROJECT = "library"
+        HARBOR_URL     = '192.168.159.129'
+        HARBOR_PROJECT = 'devsecops-portfolio'
+        GITOPS_REPO    = 'git@github.com:arijbelaid/devsecops-portfolio-gitops.git'
     }
 
     stages {
+
         stage('Checkout') {
             steps {
-                echo '🔄 Récupération du dépôt GitHub...'
                 checkout scm
                 script {
-                    def branch = sh(script: "git rev-parse --abbrev-ref HEAD", returnStdout: true).trim()
-                    def commit = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
-                    echo "📚 Branche : ${branch}"
-                    echo "🔖 Commit : ${commit}"
+                    env.GIT_SHA = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
+                    echo "Commit : ${env.GIT_SHA}"
                 }
             }
         }
 
-        stage('Verify') {
+        // 1) Test du frontend
+        stage('Frontend Tests') {
             steps {
-                echo '✅ Vérification des fichiers du projet...'
-                sh 'ls -la'
-                sh 'test -f index.html && echo "✓ index.html trouvé"'
-                sh 'test -f nextjs-portfolio/package.json && echo "✓ nextjs-portfolio/package.json trouvé"'
+                dir('nextjs-portfolio') {
+                    sh 'npm install'
+                    sh 'npm run test'
+                }
             }
         }
 
+        // 2) Test de l'API
+        stage('API Tests') {
+            steps {
+                dir('api') {
+                    sh 'npm install'
+                    sh 'npm run test -- __tests__/api.test.js'
+                }
+            }
+        }
+
+        // 3) Scans de securite
         stage('Secret Scan (Gitleaks)') {
             steps {
-                echo '🔍 Analyse des secrets avec Gitleaks...'
                 sh '''
                     docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:latest \
                     detect --source /repo --report-format json \
@@ -49,63 +64,27 @@ pipeline {
             }
         }
 
-        stage('Semgrep SAST') {
+        stage('SAST (Semgrep)') {
             steps {
-                echo '🛡️ Analyse de sécurité statique (SAST) avec Semgrep...'
                 sh '''
                     docker run --rm -v "$PWD:/src" -w /src semgrep/semgrep:latest \
                     semgrep scan --config auto --error \
-                    --exclude 'node_modules' --exclude '.next' --exclude 'dist' --exclude '.vagrant' \
-                    --exclude-rule javascript.express.security.audit.express-check-csurf-middleware-usage.express-check-csurf-middleware-usage \
-                    --exclude-rule typescript.react.security.react-insecure-request.react-insecure-request \
-                    --exclude-rule javascript.lang.security.audit.unsafe-formatstring.unsafe-formatstring \
-                    --exclude-rule package_managers.dependabot.dependabot-missing-cooldown.dependabot-missing-cooldown \
-                    --exclude-rule yaml.github-actions.security.github-actions-mutable-action-tag.github-actions-mutable-action-tag || true
+                    --exclude node_modules --exclude .next --exclude dist --exclude .vagrant || true
                 '''
             }
         }
 
-        // ⬇️ STAGE Q129 & Q130 : SCAN IaC AVEC CHECKOV (Build Vert) ⬇️
-        stage('Scan IaC (Checkov)') {
+        stage('IaC Scan (Checkov)') {
             steps {
-                echo '🛡️ Analyse de sécurité du code Terraform avec Checkov...'
                 sh '''
-                    docker run --rm \
-                      -v "$PWD:/workspace" \
-                      -w /workspace \
-                      bridgecrew/checkov:latest \
-                      -d terraform-floci \
-                      --framework terraform \
-                      --output cli \
-                      --output junitxml \
-                      --output-file-path console,checkov-report.xml || true
+                    docker run --rm -v "$PWD:/workspace" -w /workspace \
+                    bridgecrew/checkov:latest -d terraform-floci --framework terraform || true
                 '''
-            }
-            post {
-                always {
-                    // Le rapport JUnit a été retiré pour que le build passe au vert
-                    archiveArtifacts artifacts: 'checkov-report.xml', allowEmptyArchive: true
-                }
-            }
-        }
-
-        stage('Install Dependencies') {
-            steps {
-                echo '📦 Installation des dépendances API et Next.js...'
-                dir('api') {
-                    sh 'npm install'
-                }
-                dir('nextjs-portfolio') {
-                    sh 'node --version'
-                    sh 'npm --version'
-                    sh 'npm install'
-                }
             }
         }
 
         stage('Dependency Scan (npm audit)') {
             steps {
-                echo '🔎 Analyse des dépendances avec npm audit...'
                 dir('api') {
                     sh 'npm audit --audit-level=high || true'
                 }
@@ -115,66 +94,25 @@ pipeline {
             }
         }
 
-        stage('API Tests') {
+        // 4) Construction des images
+        stage('Build Images') {
             steps {
-                echo "🧪 Exécution des tests unitaires de l'API..."
-                dir('api') {
-                    sh 'npm run test -- __tests__/api.test.js'
-                }
+                sh '''
+                    DOCKER_BUILDKIT=1 docker build -t $HARBOR_URL/$HARBOR_PROJECT/api:$GIT_SHA ./api
+                    DOCKER_BUILDKIT=1 docker build -t $HARBOR_URL/$HARBOR_PROJECT/frontend:$GIT_SHA ./nextjs-portfolio
+                '''
             }
         }
 
-        stage('Frontend Tests') {
+        // 5) SBOM
+        stage('SBOM (Syft)') {
             steps {
-                echo '🧪 Exécution des tests du Frontend...'
-                dir('nextjs-portfolio') {
-                    sh 'npm run test'
-                }
-            }
-        }
-
-        stage('Build') {
-            steps {
-                echo "🏗️ Construction de l'application Next.js..."
-                dir('nextjs-portfolio') {
-                    sh 'npm run build'
-                    sh 'ls -la .next/ | head -10'
-                }
-            }
-        }
-
-        stage('Build Docker Images') {
-            steps {
-                script {
-                    def gitSha = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
-                    echo "🐳 Construction des images Docker avec BuildKit et le tag : ${gitSha}"
-
-                    sh "DOCKER_BUILDKIT=1 docker build -t devsecops-api:${gitSha} ./api"
-                    sh "DOCKER_BUILDKIT=1 docker build -t devsecops-portfolio:${gitSha} ./nextjs-portfolio"
-
-                    sh "docker tag devsecops-api:${gitSha} devsecops-api:latest"
-                    sh "docker tag devsecops-portfolio:${gitSha} devsecops-portfolio:latest"
-                }
-            }
-        }
-
-        stage('Generate SBOM with Syft') {
-            steps {
-                script {
-                    def gitSha = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
-                    echo "📄 Génération des SBOM avec Syft pour les images..."
-
-                    sh """
-                        docker run --rm -v /var/run/docker.sock:/var/run/docker.sock anchore/syft:latest \
-                        docker:devsecops-api:${gitSha} \
-                        -o spdx-json > sbom-api-${gitSha}.spdx.json
-                    """
-                    sh """
-                        docker run --rm -v /var/run/docker.sock:/var/run/docker.sock anchore/syft:latest \
-                        docker:devsecops-portfolio:${gitSha} \
-                        -o spdx-json > sbom-frontend-${gitSha}.spdx.json
-                    """
-                }
+                sh '''
+                    docker run --rm -v /var/run/docker.sock:/var/run/docker.sock anchore/syft:latest \
+                    docker:$HARBOR_URL/$HARBOR_PROJECT/api:$GIT_SHA -o spdx-json > sbom-api-$GIT_SHA.spdx.json
+                    docker run --rm -v /var/run/docker.sock:/var/run/docker.sock anchore/syft:latest \
+                    docker:$HARBOR_URL/$HARBOR_PROJECT/frontend:$GIT_SHA -o spdx-json > sbom-frontend-$GIT_SHA.spdx.json
+                '''
             }
             post {
                 always {
@@ -183,80 +121,99 @@ pipeline {
             }
         }
 
+        // 6) Publication dans Harbor (avant la signature : Cosign signe un digest du registre)
         stage('Push to Harbor') {
             steps {
+                withCredentials([usernamePassword(credentialsId: 'harbor-robot',
+                                                  usernameVariable: 'HUSER',
+                                                  passwordVariable: 'HPASS')]) {
+                    sh '''
+                        echo "$HPASS" | docker login $HARBOR_URL -u "$HUSER" --password-stdin
+                        docker push $HARBOR_URL/$HARBOR_PROJECT/api:$GIT_SHA
+                        docker push $HARBOR_URL/$HARBOR_PROJECT/frontend:$GIT_SHA
+                    '''
+                }
                 script {
-                    def gitSha = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
-                    echo "🚢 Publication des images vers Harbor avec le Robot Account..."
-
-                    sh "docker login ${HARBOR_URL} -u 'robot\$library+robot-jenkins' -p '78Q8ns1zxwyuLaWK5sOx7pDun1hmB9aG'"
-
-                    sh "docker tag devsecops-api:${gitSha} ${HARBOR_URL}/${HARBOR_PROJECT}/devsecops-api:${gitSha}"
-                    sh "docker tag devsecops-api:${gitSha} ${HARBOR_URL}/${HARBOR_PROJECT}/devsecops-api:latest"
-                    sh "docker tag devsecops-portfolio:${gitSha} ${HARBOR_URL}/${HARBOR_PROJECT}/devsecops-portfolio:${gitSha}"
-                    sh "docker tag devsecops-portfolio:${gitSha} ${HARBOR_URL}/${HARBOR_PROJECT}/devsecops-portfolio:latest"
-
-                    sh "docker push ${HARBOR_URL}/${HARBOR_PROJECT}/devsecops-api:${gitSha}"
-                    sh "docker push ${HARBOR_URL}/${HARBOR_PROJECT}/devsecops-api:latest"
-                    sh "docker push ${HARBOR_URL}/${HARBOR_PROJECT}/devsecops-portfolio:${gitSha}"
-                    sh "docker push ${HARBOR_URL}/${HARBOR_PROJECT}/devsecops-portfolio:latest"
+                    env.API_DIGEST = sh(
+                        script: "docker inspect --format='{{index .RepoDigests 0}}' ${HARBOR_URL}/${HARBOR_PROJECT}/api:${GIT_SHA} | cut -d@ -f2",
+                        returnStdout: true).trim()
+                    env.FRONT_DIGEST = sh(
+                        script: "docker inspect --format='{{index .RepoDigests 0}}' ${HARBOR_URL}/${HARBOR_PROJECT}/frontend:${GIT_SHA} | cut -d@ -f2",
+                        returnStdout: true).trim()
+                    echo "API      : ${env.API_DIGEST}"
+                    echo "Frontend : ${env.FRONT_DIGEST}"
                 }
             }
         }
 
-        stage('Sign Images with Cosign') {
+        // 7) Signature des images
+        stage('Sign Images (Cosign)') {
             steps {
-                script {
-                    def gitSha = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
-                    echo "✍️ Signature des images avec Cosign..."
-
-                    withCredentials([
-                        file(credentialsId: 'cosign-private-key', variable: 'COSIGN_PRIVATE_KEY'),
-                        string(credentialsId: 'cosign-password', variable: 'COSIGN_PASSWORD')
-                    ]) {
-                        sh """
-                            IMAGE_DIGEST=\$(docker inspect --format='{{index .RepoDigests 0}}' ${HARBOR_URL}/${HARBOR_PROJECT}/devsecops-api:${gitSha})
-                            cosign sign --key \$COSIGN_PRIVATE_KEY -y \$IMAGE_DIGEST
-                        """
-                        sh """
-                            IMAGE_DIGEST=\$(docker inspect --format='{{index .RepoDigests 0}}' ${HARBOR_URL}/${HARBOR_PROJECT}/devsecops-portfolio:${gitSha})
-                            cosign sign --key \$COSIGN_PRIVATE_KEY -y \$IMAGE_DIGEST
-                        """
-                    }
+                withCredentials([
+                    file(credentialsId: 'cosign-private-key', variable: 'COSIGN_KEY'),
+                    string(credentialsId: 'cosign-password', variable: 'COSIGN_PASSWORD')
+                ]) {
+                    sh '''
+                        cosign sign --key "$COSIGN_KEY" --allow-insecure-registry --tlog-upload=false -y \
+                          $HARBOR_URL/$HARBOR_PROJECT/api@$API_DIGEST
+                        cosign sign --key "$COSIGN_KEY" --allow-insecure-registry --tlog-upload=false -y \
+                          $HARBOR_URL/$HARBOR_PROJECT/frontend@$FRONT_DIGEST
+                    '''
                 }
             }
         }
 
-        stage('Verify Image Signature (Enforce)') {
+        stage('Verify Signatures') {
             steps {
-                script {
-                    def gitSha = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
-                    echo "🕵️ Vérification stricte de la signature des images avant utilisation..."
-
-                    withCredentials([
-                        file(credentialsId: 'cosign-public-key', variable: 'COSIGN_PUBLIC_KEY')
-                    ]) {
-                        sh """
-                            IMAGE_DIGEST=\$(docker inspect --format='{{index .RepoDigests 0}}' ${HARBOR_URL}/${HARBOR_PROJECT}/devsecops-api:${gitSha})
-                            cosign verify --key \$COSIGN_PUBLIC_KEY \$IMAGE_DIGEST || exit 1
-                        """
-                        sh """
-                            IMAGE_DIGEST=\$(docker inspect --format='{{index .RepoDigests 0}}' ${HARBOR_URL}/${HARBOR_PROJECT}/devsecops-portfolio:${gitSha})
-                            cosign verify --key \$COSIGN_PUBLIC_KEY \$IMAGE_DIGEST || exit 1
-                        """
-                    }
+                withCredentials([file(credentialsId: 'cosign-public-key', variable: 'COSIGN_PUB')]) {
+                    sh '''
+                        cosign verify --key "$COSIGN_PUB" --allow-insecure-registry --insecure-ignore-tlog=true \
+                          $HARBOR_URL/$HARBOR_PROJECT/api@$API_DIGEST
+                        cosign verify --key "$COSIGN_PUB" --allow-insecure-registry --insecure-ignore-tlog=true \
+                          $HARBOR_URL/$HARBOR_PROJECT/frontend@$FRONT_DIGEST
+                    '''
                 }
             }
         }
 
+        // 8) Mise a jour du depot GitOps (overlay dev)
+        stage('Update GitOps Repo') {
+            steps {
+                sshagent(['gitops-ssh']) {
+                    sh '''
+                        set -e
+                        rm -rf gitops
+                        GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=accept-new" git clone $GITOPS_REPO gitops
+                        cd gitops
+                        F=overlays/dev/kustomization.yaml
+                        awk -v api="$API_DIGEST" -v fe="$FRONT_DIGEST" '
+                          index($0,"/api") && /name:/ {print; getline; sub(/digest: .*/,"digest: " api); print; next}
+                          index($0,"/frontend") && /name:/ {print; getline; sub(/digest: .*/,"digest: " fe); print; next}
+                          {print}' $F > $F.new
+                        mv $F.new $F
+                        git config user.email "jenkins@local"
+                        git config user.name "jenkins"
+                        if git diff --quiet; then
+                          echo "Aucun changement a pousser"
+                        else
+                          git commit -am "ci: build $GIT_SHA (api=$API_DIGEST frontend=$FRONT_DIGEST)"
+                          GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=accept-new" git push origin main
+                        fi
+                    '''
+                }
+            }
+        }
     }
 
     post {
+        always {
+            sh 'docker logout $HARBOR_URL || true'
+        }
         success {
-            echo '✅ Pipeline terminé avec succès !'
+            echo 'Pipeline termine avec succes.'
         }
         failure {
-            echo '❌ Le pipeline a échoué.'
+            echo 'Le pipeline a echoue.'
         }
     }
 }
