@@ -176,14 +176,15 @@ pipeline {
             }
         }
 
-        // 8) Mise a jour du depot GitOps (overlay dev)
+        // 8) Mise a jour du depot GitOps (overlay dev), sans plugin SSH Agent
         stage('Update GitOps Repo') {
             steps {
-                sshagent(['gitops-ssh']) {
+                withCredentials([sshUserPrivateKey(credentialsId: 'gitops-ssh', keyFileVariable: 'SSH_KEY')]) {
                     sh '''
                         set -e
+                        export GIT_SSH_COMMAND="ssh -i $SSH_KEY -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new"
                         rm -rf gitops
-                        GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=accept-new" git clone $GITOPS_REPO gitops
+                        git clone $GITOPS_REPO gitops
                         cd gitops
                         F=overlays/dev/kustomization.yaml
                         awk -v api="$API_DIGEST" -v fe="$FRONT_DIGEST" '
@@ -197,7 +198,7 @@ pipeline {
                           echo "Aucun changement a pousser"
                         else
                           git commit -am "ci: build $GIT_SHA (api=$API_DIGEST frontend=$FRONT_DIGEST)"
-                          GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=accept-new" git push origin main
+                          git push origin main
                         fi
                     '''
                 }
