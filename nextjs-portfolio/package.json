@@ -10,6 +10,8 @@
     "test": "jest"
   },
   "dependencies": {
+    "@opentelemetry/exporter-trace-otlp-http": "^0.301.2",
+    "@opentelemetry/sdk-node": "^0.301.2",
     "next": "^16.4.5",
     "react": "19.3.0",
     "react-dom": "19.3.0",
