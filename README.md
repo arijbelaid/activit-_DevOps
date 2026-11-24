@@ -2304,3 +2304,7 @@ L'API expose ses métriques au format Prometheus sur `GET /metrics` :
 - `http_request_duration_seconds` : latence (histogramme).
 
 Exemple de métrique :
+
+```
+http_requests_total{method="GET",route="/api/health",status="200"} 3
+```
