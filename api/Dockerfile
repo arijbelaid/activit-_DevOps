@@ -1,29 +1,33 @@
-# ==========================================
-# Étape 1 : Builder (Installation et Build)
-# ==========================================
-FROM node:22-alpine AS builder
+# ============================================================
+# API Express — Image Node.js (Multi-stage)
+# ============================================================
+
+# 1. Étape de build
+FROM node:22-alpine3.18 AS builder
+# ⬇️ AJOUT POUR PRISMA : fournit libssl.so.1.1 ⬇️
+RUN apk add --no-cache openssl1.1-compat
+
 WORKDIR /app
 COPY package*.json ./
-# On installe TOUTES les dépendances (y compris Prisma CLI)
 RUN npm ci
-# On copie Prisma et on génère le client
-COPY prisma ./prisma/
-RUN npx prisma generate
 COPY . .
+RUN npx prisma generate
 
-# ==========================================
-# Étape 2 : Runner (Image finale légère)
-# ==========================================
-FROM node:22-alpine AS runner
+# 2. Étape de production
+FROM node:22-alpine3.18 AS runner
+# ⬇️ AJOUT POUR PRISMA : fournit libssl.so.1.1 ⬇️
+RUN apk add --no-cache openssl1.1-compat
+
 WORKDIR /app
-# On ne réinstalle que les dépendances de production
 COPY package*.json ./
 RUN npm ci --omit=dev
-# On récupère le client Prisma généré à l'étape 1
+COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
-# On copie le code source
-COPY --from=builder /app .
-EXPOSE 5000
+COPY --from=builder /app/index.js ./
+
+# Configuration de l'utilisateur non-root (Sécurité)
 USER node
+
+EXPOSE 5000
 CMD ["node", "index.js"]
