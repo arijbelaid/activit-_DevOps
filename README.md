@@ -2308,3 +2308,11 @@ Exemple de métrique :
 ```
 http_requests_total{method="GET",route="/api/health",status="200"} 3
 ```
+
+## Runbook de l'alerte SLO
+
+L'alerte Prometheus `ApiAvailabilitySLOViolated` se déclenche lorsque le SLI de disponibilité de `/api/contact` passe sous 99 % (SLO). Les actions à effectuer sont décrites dans le runbook :
+
+[Runbook : ApiAvailabilitySLOViolated](https://github.com/arijbelaid/devsecops-portfolio-gitops/blob/main/monitoring/runbook-api-availability.md)
+
+Ce même lien figure dans l'annotation `runbook_url` de l'alerte.
