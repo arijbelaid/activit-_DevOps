@@ -20,6 +20,11 @@ const PORT = process.env.PORT || 5000;
 // Initialisation de Prisma
 const prisma = new PrismaClient();
 
+// Tracage : span manuel autour de l'ecriture PostgreSQL
+const { trace, SpanStatusCode } = require('@opentelemetry/api');
+const tracer = trace.getTracer('portfolio-api');
+
+
 // ⬇️ Configuration du client SQS pour Floci (Q114 + Q115) ⬇️
 const sqsClient = new SQSClient({
   region: process.env.AWS_REGION || "us-east-1",
@@ -143,9 +148,21 @@ app.post('/api/contact', contactLimiter, async (req, res, next) => {
   const { nom, email, message } = result.data;
 
   try {
-    const newContact = await prisma.contact.create({
-      data: { nom, email, message },
-    });
+    const newContact = await tracer.startActiveSpan(
+      'postgresql INSERT contact',
+      { attributes: { 'db.system': 'postgresql', 'db.operation': 'INSERT', 'db.sql.table': 'Contact' } },
+      async (span) => {
+        try {
+          return await prisma.contact.create({ data: { nom, email, message } });
+        } catch (e) {
+          span.recordException(e);
+          span.setStatus({ code: SpanStatusCode.ERROR });
+          throw e;
+        } finally {
+          span.end();
+        }
+      }
+    );
 
     console.log(`📩 Message Prisma enregistré de ${nom}`);
 
