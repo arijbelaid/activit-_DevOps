@@ -1,3 +1,4 @@
+require('./tracing');
 const rateLimit = require('express-rate-limit');
 const { z } = require('zod');
 const express = require('express');
