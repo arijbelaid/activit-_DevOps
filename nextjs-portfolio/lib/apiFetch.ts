@@ -18,5 +18,12 @@ export function apiFetch(input: RequestInfo | URL, init: RequestInit = {}): Prom
   if (!headers.has('X-Correlation-ID')) {
     headers.set('X-Correlation-ID', newCorrelationId());
   }
+  // Contexte de trace W3C : l'identifiant de correlation sert d'identifiant de trace,
+  // ce qui relie la requete du navigateur a la trace Tempo de l'API.
+  if (!headers.has('traceparent')) {
+    const traceId = headers.get('X-Correlation-ID')!.replace(/-/g, '').padEnd(32, '0').slice(0, 32);
+    const spanId = newCorrelationId().replace(/-/g, '').slice(0, 16);
+    headers.set('traceparent', `00-${traceId}-${spanId}-01`);
+  }
   return fetch(input, { ...init, headers });
 }

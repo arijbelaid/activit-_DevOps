@@ -11,6 +11,8 @@ if (disabled) {
   const { OTLPTraceExporter } = require('@opentelemetry/exporter-trace-otlp-http');
   const { HttpInstrumentation } = require('@opentelemetry/instrumentation-http');
   const { ExpressInstrumentation } = require('@opentelemetry/instrumentation-express');
+  const { PrismaInstrumentation } = require('@prisma/instrumentation');
+  const { AwsInstrumentation } = require('@opentelemetry/instrumentation-aws-sdk');
 
   // Collecteur configure (ex. Jaeger) : export OTLP/HTTP.
   // Sinon : les spans sont affiches dans les logs du conteneur (exporteur console).
@@ -30,6 +32,8 @@ if (disabled) {
         ignoreIncomingRequestHook: (req) => req.url === '/metrics',
       }),
       new ExpressInstrumentation(),
+      new PrismaInstrumentation(),
+      new AwsInstrumentation(),
     ],
   });
 
