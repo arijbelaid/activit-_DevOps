@@ -1,5 +1,6 @@
 "use client";
 
+import { apiFetch } from "../lib/apiFetch";
 import { useState } from "react";
 import { contactsData } from "@/data";
 
@@ -17,7 +18,7 @@ export default function Contact() {
 
     try {
       // On utilise l'IP de ta VM (remplace 192.168.159.129 par ton IP actuelle si elle a changé)
-      const res = await fetch("http://192.168.159.129:5000/api/contact", {
+      const res = await apiFetch("http://192.168.159.129:5000/api/contact", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),

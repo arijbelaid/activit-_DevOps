@@ -1,5 +1,6 @@
 "use client";
 
+import { apiFetch } from "../lib/apiFetch";
 import { useState, useEffect } from "react";
 import Link from "next/link";
 
@@ -21,7 +22,7 @@ export default function Projects() {
     const controller = new AbortController();
 
     // 2. On passe le signal au fetch
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/projects`, { signal: controller.signal })
+    apiFetch(`${process.env.NEXT_PUBLIC_API_URL}/api/projects`, { signal: controller.signal })
       .then((res) => {
         if (!res.ok) throw new Error("Erreur lors de la récupération des projets");
         return res.json();

@@ -1,4 +1,5 @@
 require('./tracing');
+const { correlationMiddleware } = require('./correlation');
 const rateLimit = require('express-rate-limit');
 const { z } = require('zod');
 const express = require('express');
@@ -38,6 +39,7 @@ const QUEUE_URL = `${BASE_URL}/000000000000/ma-file-de-test`;
 app.use(helmet());
 app.use(cors());
 app.use(express.json());
+app.use(correlationMiddleware);
 app.use(metricsMiddleware);
 app.get('/metrics', metricsHandler);
 

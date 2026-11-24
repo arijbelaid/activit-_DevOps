@@ -1,5 +1,6 @@
 "use client";
 
+import { apiFetch } from "../lib/apiFetch";
 import { useState, useEffect } from "react";
 
 interface SkillGroup {
@@ -16,7 +17,7 @@ export default function Skills() {
     const controller = new AbortController();
 
     // 2. Appel à l'API avec le signal d'annulation
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/skills`, { signal: controller.signal })
+    apiFetch(`${process.env.NEXT_PUBLIC_API_URL}/api/skills`, { signal: controller.signal })
       .then((res) => {
         if (!res.ok) throw new Error("Erreur de récupération");
         return res.json();
