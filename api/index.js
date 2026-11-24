@@ -1,11 +1,13 @@
 const rateLimit = require('express-rate-limit');
 const { z } = require('zod');
 const express = require('express');
+const { metricsMiddleware, metricsHandler } = require('./metrics');
 const cors = require('cors');
 const helmet = require('helmet');
 const { PrismaClient } = require('@prisma/client');
+const { SQSClient, SendMessageCommand } = require('@aws-sdk/client-sqs'); // Q114 : Import SDK AWS
 
-// On ne charge le .env que si on n'est pas en mode test (pour éviter le bruit dans Jest)
+// On ne charge le .env que si on n'est pas en mode test
 if (process.env.NODE_ENV !== 'test') {
   require('dotenv').config();
 }
@@ -16,10 +18,27 @@ const PORT = process.env.PORT || 5000;
 // Initialisation de Prisma
 const prisma = new PrismaClient();
 
+// ⬇️ Configuration du client SQS pour Floci (Q114 + Q115) ⬇️
+const sqsClient = new SQSClient({
+  region: process.env.AWS_REGION || "us-east-1",
+  // Utilise 'floci' si dans Docker Compose, sinon 'localhost' en local
+  endpoint: process.env.AWS_ENDPOINT_URL || "http://localhost:4566", 
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID || "test",
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || "test"
+  }
+});
+
+// Construit dynamiquement l'URL de la file selon l'environnement
+const BASE_URL = process.env.AWS_ENDPOINT_URL || "http://localhost:4566";
+const QUEUE_URL = `${BASE_URL}/000000000000/ma-file-de-test`;
+
 // Middlewares de sécurité
 app.use(helmet());
 app.use(cors());
 app.use(express.json());
+app.use(metricsMiddleware);
+app.get('/metrics', metricsHandler);
 
 // Route de base
 app.get('/', (req, res) => {
@@ -106,7 +125,7 @@ const contactLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-// Route 5 : Formulaire de contact avec Prisma (Q46 + Q48 + Q51 + Q54 + Q55)
+// Route 5 : Formulaire de contact avec Prisma (Q46 + Q48 + Q51 + Q54 + Q55 + Q114)
 app.post('/api/contact', contactLimiter, async (req, res, next) => {
   const result = contactSchema.safeParse(req.body);
 
@@ -126,9 +145,24 @@ app.post('/api/contact', contactLimiter, async (req, res, next) => {
     });
 
     console.log(`📩 Message Prisma enregistré de ${nom}`);
+
+    // ⬇️ AJOUT Q114 : Envoi de la notification vers Floci SQS ⬇️
+    try {
+      const sqsMessage = JSON.stringify({ nom, email, message });
+      await sqsClient.send(new SendMessageCommand({
+        QueueUrl: QUEUE_URL,
+        MessageBody: sqsMessage
+      }));
+      console.log(`📨 Notification SQS envoyée à Floci pour ${nom}`);
+    } catch (sqsError) {
+      // On log l'erreur SQS mais on ne bloque pas la réponse HTTP (l'enregistrement en BDD est prioritaire)
+      console.error(`⚠️ Échec de l'envoi SQS :`, sqsError.message);
+    }
+    // ⬆️ FIN AJOUT Q114 ⬆️
+
     res.status(200).json({
       status: "success",
-      message: "Votre message a bien été reçu et enregistré !",
+      message: "Votre message a bien été reçu, enregistré et notifié !",
       data: newContact
     });
   } catch (error) {
@@ -156,7 +190,6 @@ app.use((err, req, res, next) => {
 
 // Exporter l'application pour les tests
 module.exports = app;
-
 
 // Lancer le serveur uniquement si on n'est pas en mode test
 if (process.env.NODE_ENV !== 'test') {

@@ -2294,3 +2294,13 @@ Les branches doivent suivre le format `type/description-courte` en anglais (keba
 6. **Merge** : Fusion de la PR dans `main` et suppression de la branche.
 Déclenchement de la release automatique
 Release test
+
+## Métriques applicatives
+
+L'API expose ses métriques au format Prometheus sur `GET /metrics` :
+
+- `http_requests_total` : nombre de requêtes HTTP ;
+- `http_request_errors_total` : nombre de réponses en erreur (5xx) ;
+- `http_request_duration_seconds` : latence (histogramme).
+
+Exemple de métrique :
